@@ -2543,21 +2543,21 @@ end
 -- ============================================================================
 function _G.GetKillCounterPath()
     local possiblePaths = {
-        '/storage/emulated/0/Android/data/com.pubg.imobile/files/Kong.ini',
-        '/storage/emulated/0/Android/data/com.pubg.krmobile/files/Kong.ini',
-        '/storage/emulated/0/Android/data/com.vng.pubgmobile/files/Kong.ini',
-        '/storage/emulated/0/Android/data/com.rekoo.pubgm/files/Kong.ini'
+        '/storage/emulated/0/Android/data/com.pubg.imobile/files/ADITYA_ORG.ini',
+        '/storage/emulated/0/Android/data/com.pubg.krmobile/files/ADITYA_ORG.ini',
+        '/storage/emulated/0/Android/data/com.vng.pubgmobile/files/ADITYA_ORG.ini',
+        '/storage/emulated/0/Android/data/com.rekoo.pubgm/files/ADITYA_ORG.ini'
     }
     for _, path in ipairs(possiblePaths) do
         local file = io.open(path, 'r')
         if file then file:close(); return path end
     end
     for _, path in ipairs(possiblePaths) do
-        local dir = path:match("(.*)/Kong.ini")
+        local dir = path:match("(.*)/ADITYA_ORG.ini")
         local f = io.open(dir .. "/config.ini", 'r')
         if f then f:close(); return path end
     end
-    return '/storage/emulated/0/Android/data/com.pubg.imobile/files/Kong.ini'
+    return '/storage/emulated/0/Android/data/com.pubg.imobile/files/ADITYA_ORG.ini'
 end
 
 _G.ActiveKillCounterPath = nil
@@ -2569,10 +2569,10 @@ local function saveKillCountToFile()
     end
     content = content .. '}'
     local possiblePaths = {
-        '/storage/emulated/0/Android/data/com.pubg.imobile/files/Kong.ini',
-        '/storage/emulated/0/Android/data/com.pubg.krmobile/files/Kong.ini',
-        '/storage/emulated/0/Android/data/com.vng.pubgmobile/files/Kong.ini',
-        '/storage/emulated/0/Android/data/com.rekoo.pubgm/files/Kong.ini'
+        '/storage/emulated/0/Android/data/com.pubg.imobile/files/ADITYA_ORG.ini',
+        '/storage/emulated/0/Android/data/com.pubg.krmobile/files/ADITYA_ORG.ini',
+        '/storage/emulated/0/Android/data/com.vng.pubgmobile/files/ADITYA_ORG.ini',
+        '/storage/emulated/0/Android/data/com.rekoo.pubgm/files/ADITYA_ORG.ini'
     }
     if _G.ActiveKillCounterPath then
         local file = io.open(_G.ActiveKillCounterPath, 'w+')
