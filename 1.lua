@@ -1,3 +1,5 @@
+[file name]: 1.lua
+[file content begin]
 -- Per-match guard: allow re-init when the player controller changes (new match)
 do
     local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
@@ -189,7 +191,6 @@ local function IsValid(obj)
 end
 
 -- This is the enhanced wallhack that uses ESPConfig settings.
--- It will be called by the existing ESPTick if Mod_Wallhack_Enabled is true.
 function ApplyWallhackAdvanced()
     if not _G.ESPConfig.Wallhack then return end
 
@@ -2301,7 +2302,7 @@ local WEAPON_NAME_TO_ID = {
     AKM=101001,M16A4=101002,SCAR=101003,M416=101004,
     GROZA=101005,AUG=101006,QBZ=101007,M762=101008,
     MK47=101009,G36C=101010,HoneyBadger=101012,ASM=101101,FAMAS=101100,ACE32=101102,
-    UZI=102001,UMP=102002,Vector=102003,Thompson=102004,Bizon=102005,MP5K=102007,P90=102105,
+    UZI=102001,UMP=102002,Vector=102003,Bizon=102005,MP5K=102007,P90=102105,
     Kar98=103001,M24=103002,AWM=103003,SKS=103004,VSS=103005,
     Mini14=103006,MK14=103007,SLR=103009,QBU=103010,MK12=103100,AMR=103012,DSR=103102,Mosin=103013,
     S12K=104003,DBS=104004,S1897=104001,S686=104002,
@@ -2780,75 +2781,6 @@ end
 
 _G._SetupSkinTimer()
 
--- ==================== WALLHACK (original) ====================
-local function ApplyWallHack(localPlayer, enemy, pc)
-    if not _G.CheatsEnabled then return end
-    if _G.Mod_Wallhack_Enabled == false then return end
-    if not slua.isValid(enemy) then return end
-    local meshes = {}
-    pcall(function()
-        if slua.isValid(enemy.Mesh) then table.insert(meshes, enemy.Mesh) end
-        local SkelClass = import("SkeletalMeshComponent")
-        if SkelClass then
-            local childs = enemy:GetComponentsByClass(SkelClass)
-            if childs then
-                local count = type(childs.Num) == "function" and childs:Num() or #childs
-                for c = 1, count do
-                    local comp = type(childs.Get) == "function" and childs:Get(c-1) or childs[c]
-                    if slua.isValid(comp) and comp ~= enemy.Mesh then table.insert(meshes, comp) end
-                end
-            end
-        end
-    end)
-    pcall(function()
-        for _, comp in ipairs(meshes) do
-            if slua.isValid(comp) then
-                local ok, mat = pcall(function() return comp:GetMaterial(0) end)
-                if ok and slua.isValid(mat) then
-                    local ok2, base = pcall(function() return mat:GetBaseMaterial() end)
-                    if ok2 and slua.isValid(base) then
-                        base.bDisableDepthTest = true; base.BlendMode = 2
-                    end
-                end
-                comp.UseScopeDistanceCulling = false
-                comp.PrimitiveShadingStrategy = 1; comp.ShadingRate = 6
-            end
-        end
-        local isVisible = false
-        if slua.isValid(pc) and slua.isValid(enemy) and type(pc.LineOfSightTo) == "function" then
-            pcall(function() isVisible = pc:LineOfSightTo(enemy) end)
-        end
-        local finalColor = isVisible and {R=0, G=255, B=0, A=255} or {R=255, G=255, B=0, A=255}
-        local scale = {R=255, G=255, B=0, A=0}
-        enemy._WH_MIDs = enemy._WH_MIDs or {}
-        for _, comp in ipairs(meshes) do
-            if slua.isValid(comp) then
-                local ck = tostring(comp)
-                enemy._WH_MIDs[ck] = enemy._WH_MIDs[ck] or {}
-                for i = 0, 10 do
-                    local ok3, mi = pcall(function() return comp:GetMaterial(i) end)
-                    if not ok3 or not slua.isValid(mi) then break end
-                    local mid = enemy._WH_MIDs[ck][i]
-                    if not slua.isValid(mid) then
-                        local ok4, nm = pcall(function() return comp:CreateAndSetMaterialInstanceDynamic(i) end)
-                        if ok4 and slua.isValid(nm) then enemy._WH_MIDs[ck][i] = nm; mid = nm end
-                    end
-                    if slua.isValid(mid) then
-                        pcall(function()
-                            mid:SetVectorParameterValue("颜色", finalColor)
-                            mid:SetVectorParameterValue("Color", finalColor)
-                            mid:SetVectorParameterValue("BaseColor", finalColor)
-                            mid:SetVectorParameterValue("BodyColor", finalColor)
-                            mid:SetVectorParameterValue("DiffuseColor", finalColor)
-                            mid:SetVectorParameterValue("ParaScaleOffset", scale)
-                        end)
-                    end
-                end
-            end
-        end
-    end)
-end
-
 -- ==================== ESP ==================== 
 local SecurityCommonUtils = require("GameLua.Mod.BaseMod.Common.Security.SecurityCommonUtils")
 local ASTExtraPlayerController = import("/Script/ShadowTrackerExtra.STExtraPlayerController")
@@ -3010,11 +2942,9 @@ local function ESPTick()
                         HUD:AddDebugText(string.format("[%.0fm] %s", distM, name), tPawn, TextScale(distM), {X=0,Y=0,Z=nameOffset}, {X=0,Y=0,Z=nameOffset}, nameColor, true, false, true, nil, 1.0, true)
 
                     end
-                    -- Use advanced wallhack if enabled via ESPConfig, otherwise fallback to original
+                    -- Use advanced wallhack if enabled
                     if _G.ESPConfig.Wallhack then
                         pcall(ApplyWallhackAdvanced)
-                    else
-                        pcall(ApplyWallHack, currentPawn, tPawn, uCon)
                     end
                 end
             end
@@ -3475,6 +3405,10 @@ pcall(function()
         end)
     end
 
+    -- =========================================================================
+    --  MODIFIED MENU TAB – Now with three separate categories:
+    --  GENERAL, WALLHACK, SCENE
+    -- =========================================================================
     _G.InitModMenuTab = function()
         local LocUtil = _G.LocUtil
         if not LocUtil and package.loaded["client.common.LocUtil"] then
@@ -3498,17 +3432,14 @@ pcall(function()
         if not SettingPageDefine.ModMenu then
             local AliasMap = require("client.slua.umg.NewSetting.Item.AliasMap")
             
-            local ModMenuStack = {
+            -- ===== GENERAL CATEGORY =====
+            local GeneralStack = {
                 { Key = "Title_Main", UI = AliasMap.Title, Text = "ADITYA MENU" },
-                -- ===== MAIN TOGGLES =====
                 {
                     Key = "ModMenu_Aimbot",
                     UI = AliasMap.Switcher,
                     Text = "AIMBOT",
-                    GetFunc = function() 
-                        local state = _G.Mod_Aimbot_Enabled or false
-                        return state
-                    end,
+                    GetFunc = function() return _G.Mod_Aimbot_Enabled or false end,
                     SetFunc = function(_, value)
                         _G.Mod_Aimbot_Enabled = value
                         print("[MOD] AIMBOT: " .. (value and "ON ✓" or "OFF ✗"))
@@ -3523,19 +3454,6 @@ pcall(function()
                     SetFunc = function(_, value)
                         _G.Mod_ESP_Enabled = value
                         print("[MOD] WALL ESP: " .. (value and "ON ✓" or "OFF ✗"))
-                        return true
-                    end
-                },
-                {
-                    Key = "Wallhack",
-                    UI = AliasMap.Switcher,
-                    Text = "WALLHACK (Basic)",
-                    GetFunc = function() return _G.Mod_Wallhack_Enabled or false end,
-                    SetFunc = function(_, value)
-                        _G.Mod_Wallhack_Enabled = value
-                        -- Also sync advanced wallhack toggle
-                        _G.ESPConfig.Wallhack = value
-                        print("[MOD] WALLHACK: " .. (value and "ON ✓" or "OFF ✗"))
                         return true
                     end
                 },
@@ -3598,7 +3516,7 @@ pcall(function()
                     Key = "ModMenu_iPadViewDistance",
                     UI = AliasMap.Slider,
                     Text = "View Distance (80-140)",
-                    GetFunc = function() 
+                    GetFunc = function()
                         return ((_G.Mod_iPadViewDistance or 90) - 80) / 60
                     end,
                     SetFunc = function(_, value)
@@ -3606,8 +3524,24 @@ pcall(function()
                         print("[MOD] View Distance: " .. _G.Mod_iPadViewDistance)
                         return true
                     end
+                }
+            }
+
+            -- ===== WALLHACK CATEGORY =====
+            local WallhackStack = {
+                { Key = "Title_Wallhack", UI = AliasMap.Title, Text = "--- WALLHACK SETTINGS ---" },
+                {
+                    Key = "Wallhack",
+                    UI = AliasMap.Switcher,
+                    Text = "WALLHACK",
+                    GetFunc = function() return _G.Mod_Wallhack_Enabled or false end,
+                    SetFunc = function(_, value)
+                        _G.Mod_Wallhack_Enabled = value
+                        _G.ESPConfig.Wallhack = value
+                        print("[MOD] WALLHACK: " .. (value and "ON ✓" or "OFF ✗"))
+                        return true
+                    end
                 },
-                -- ===== ADVANCED WALLHACK SETTINGS =====
                 { Key = "Title_WallhackAdv", UI = AliasMap.Title, Text = "--- ADVANCED WALLHACK ---" },
                 {
                     Key = "ESP_WallhackVisibleColor",
@@ -3647,89 +3581,7 @@ pcall(function()
                         return true
                     end
                 },
-                -- ===== SCENE CONTROLS =====
-                { Key = "Title_Scene", UI = AliasMap.Title, Text = "--- SCENE CONTROLS ---" },
-                {
-                    Key = "ESP_RainEnabled",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "Rain",
-                    GetFunc = function() return _G.ESPConfig.RainEnabled end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.RainEnabled = value
-                        SetRainEnabled(value)
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_SnowEnabled",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "Snow",
-                    GetFunc = function() return _G.ESPConfig.SnowEnabled end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.SnowEnabled = value
-                        SetSnowEnabled(value)
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_BlackSky",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "BlackSky",
-                    GetFunc = function() return _G.ESPConfig.BlackSky end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.BlackSky = value
-                        SetBlackSky(value)
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_RemoveFog",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "No Fog",
-                    GetFunc = function() return _G.ESPConfig.RemoveFog end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.RemoveFog = value
-                        SetFogRemoval(value)
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_RemoveGrass",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "No Grass (Scene)",
-                    GetFunc = function() return _G.ESPConfig.RemoveGrass end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.RemoveGrass = value
-                        SetGrassRemoval(value)
-                        -- Also sync with legacy toggle if desired (optional)
-                        if value then _G.Mod_NoGrass_Enabled = true end
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_RemoveTree",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "No Tree",
-                    GetFunc = function() return _G.ESPConfig.RemoveTree end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.RemoveTree = value
-                        SetTreeRemoval(value)
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_RemoveWater",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "No Water",
-                    GetFunc = function() return _G.ESPConfig.RemoveWater end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.RemoveWater = value
-                        SetWaterRemoval(value)
-                        return true
-                    end
-                },
-                -- Original CHAMS color section (kept for compatibility)
-                { Key = "Title_ESP_Colors", UI = AliasMap.Title, Text = "CHAMS COLORS (ESP)" },
+                { Key = "Title_ESP_Colors", UI = AliasMap.Title, Text = "CHAMS COLORS" },
                 {
                     Key = "ModMenu_GreenColor",
                     UI = AliasMap.Switcher,
@@ -3819,16 +3671,110 @@ pcall(function()
                     end
                 }
             }
-            
+
+            -- ===== SCENE CATEGORY =====
+            local SceneStack = {
+                { Key = "Title_Scene", UI = AliasMap.Title, Text = "--- SCENE CONTROLS ---" },
+                {
+                    Key = "ESP_RainEnabled",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "Rain",
+                    GetFunc = function() return _G.ESPConfig.RainEnabled end,
+                    SetFunc = function(_, value)
+                        _G.ESPConfig.RainEnabled = value
+                        SetRainEnabled(value)
+                        return true
+                    end
+                },
+                {
+                    Key = "ESP_SnowEnabled",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "Snow",
+                    GetFunc = function() return _G.ESPConfig.SnowEnabled end,
+                    SetFunc = function(_, value)
+                        _G.ESPConfig.SnowEnabled = value
+                        SetSnowEnabled(value)
+                        return true
+                    end
+                },
+                {
+                    Key = "ESP_BlackSky",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "BlackSky",
+                    GetFunc = function() return _G.ESPConfig.BlackSky end,
+                    SetFunc = function(_, value)
+                        _G.ESPConfig.BlackSky = value
+                        SetBlackSky(value)
+                        return true
+                    end
+                },
+                {
+                    Key = "ESP_RemoveFog",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "No Fog",
+                    GetFunc = function() return _G.ESPConfig.RemoveFog end,
+                    SetFunc = function(_, value)
+                        _G.ESPConfig.RemoveFog = value
+                        SetFogRemoval(value)
+                        return true
+                    end
+                },
+                {
+                    Key = "ESP_RemoveGrass",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "No Grass (Scene)",
+                    GetFunc = function() return _G.ESPConfig.RemoveGrass end,
+                    SetFunc = function(_, value)
+                        _G.ESPConfig.RemoveGrass = value
+                        SetGrassRemoval(value)
+                        if value then _G.Mod_NoGrass_Enabled = true end
+                        return true
+                    end
+                },
+                {
+                    Key = "ESP_RemoveTree",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "No Tree",
+                    GetFunc = function() return _G.ESPConfig.RemoveTree end,
+                    SetFunc = function(_, value)
+                        _G.ESPConfig.RemoveTree = value
+                        SetTreeRemoval(value)
+                        return true
+                    end
+                },
+                {
+                    Key = "ESP_RemoveWater",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "No Water",
+                    GetFunc = function() return _G.ESPConfig.RemoveWater end,
+                    SetFunc = function(_, value)
+                        _G.ESPConfig.RemoveWater = value
+                        SetWaterRemoval(value)
+                        return true
+                    end
+                }
+            }
+
+            -- New Category structure
             SettingPageDefine.ModMenu = {
                 Key = "ModMenu",
                 loc = "ADITYA_MENU",
-                UIKey = "Setting_Page_Privacy", 
+                UIKey = "Setting_Page_Privacy",
                 Category = {
                     {
-                        Key = "ModMenu_Main",
-                        loc = "FEATURES", 
-                        Stack = ModMenuStack
+                        Key = "General",
+                        loc = "GENERAL",
+                        Stack = GeneralStack
+                    },
+                    {
+                        Key = "Wallhack",
+                        loc = "WALLHACK",
+                        Stack = WallhackStack
+                    },
+                    {
+                        Key = "Scene",
+                        loc = "SCENE",
+                        Stack = SceneStack
                     }
                 }
             }
@@ -3836,6 +3782,7 @@ pcall(function()
             table.insert(SettingCatalog, SettingPageDefine.ModMenu)
         end
 
+        -- UIManager Hook (unchanged)
         local UIManager = _G.UIManager
         if UIManager and not UIManager._IsModMenuHooked then
             local old_ShowUI = UIManager.ShowUI
@@ -3852,7 +3799,6 @@ pcall(function()
                                 hasModMenu = true
                             end
                         end
-                        
                         if not hasModMenu then
                             table.insert(newCatalog, SettingPageDefine.ModMenu)
                             args[1] = newCatalog
@@ -4062,3 +4008,4 @@ pcall(function()
 end)
 
 -- Done.
+[file content end]
