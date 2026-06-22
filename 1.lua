@@ -3547,29 +3547,33 @@ pcall(function()
 end)
 
 -- ===================================================================
--- MENU REGISTRATION (Merged from both files)
+-- FIXED MENU REGISTRATION (works even if settings UI loads first)
 -- ===================================================================
 pcall(function()
+    -- Force LocUtil to accept the custom menu key
+    local LocUtil = _G.LocUtil
+    if not LocUtil then
+        pcall(function()
+            LocUtil = require("client.common.LocUtil")
+        end)
+    end
+    if LocUtil and not LocUtil._IsModMenuHooked then
+        local old_get = LocUtil.GetLocalizeResStr
+        LocUtil.GetLocalizeResStr = function(id)
+            if type(id) == "string" and not tonumber(id) then
+                return id  -- return the key string as-is for custom entries
+            end
+            return old_get(id)
+        end
+        LocUtil._IsModMenuHooked = true
+        print("[MOD] LocUtil hooked for custom menu keys")
+    end
+
     local SettingPageDefine = require("client.logic.NewSetting.SettingPageDefine")
     local SettingCatalog = require("client.logic.NewSetting.SettingCatalog")
     local AliasMap = require("client.slua.umg.NewSetting.Item.AliasMap")
 
-    -- Create ModMenu if not exists
-    if not SettingPageDefine.ModMenu then
-        SettingPageDefine.ModMenu = {
-            Key = "ModMenu",
-            loc = "ADITYA_MENU",
-            UIKey = "Setting_Page_Privacy",
-            Category = {}
-        }
-        table.insert(SettingCatalog, SettingPageDefine.ModMenu)
-    end
-
-    -- Avoid double registration
-    if SettingPageDefine.ModMenu._Merged then return end
-    SettingPageDefine.ModMenu._Merged = true
-
-    -- Build the full menu stack
+    -- Build the full menu stack (merge all options)
     local ModMenuStack = {
         -- Main features
         {
@@ -3577,30 +3581,21 @@ pcall(function()
             UI = AliasMap.Switcher,
             Text = "AIMBOT",
             GetFunc = function() return _G.Mod_Aimbot_Enabled or false end,
-            SetFunc = function(_, value)
-                _G.Mod_Aimbot_Enabled = value
-                return true
-            end
+            SetFunc = function(_, value) _G.Mod_Aimbot_Enabled = value; return true end
         },
         {
             Key = "ESP",
             UI = AliasMap.Switcher,
             Text = "WALL ESP",
             GetFunc = function() return _G.Mod_ESP_Enabled or false end,
-            SetFunc = function(_, value)
-                _G.Mod_ESP_Enabled = value
-                return true
-            end
+            SetFunc = function(_, value) _G.Mod_ESP_Enabled = value; return true end
         },
         {
             Key = "Skin",
             UI = AliasMap.Switcher,
             Text = "SKINS",
             GetFunc = function() return _G.Mod_Skin_Enabled or false end,
-            SetFunc = function(_, value)
-                _G.Mod_Skin_Enabled = value
-                return true
-            end
+            SetFunc = function(_, value) _G.Mod_Skin_Enabled = value; return true end
         },
         {
             Key = "FPS165",
@@ -3635,9 +3630,7 @@ pcall(function()
             end
         },
 
-        -- ============================================================
-        -- WALLHACK CATEGORY (merged from add.lua)
-        -- ============================================================
+        -- Wallhack sub‑menu
         {
             Key = "Title_Wallhack",
             UI = AliasMap.Title,
@@ -3648,10 +3641,7 @@ pcall(function()
             UI = AliasMap.Switcher,
             Text = "Wallhack ON/OFF",
             GetFunc = function() return _G.Mod_Wallhack_Enabled or false end,
-            SetFunc = function(_, value)
-                _G.Mod_Wallhack_Enabled = value
-                return true
-            end
+            SetFunc = function(_, value) _G.Mod_Wallhack_Enabled = value; return true end
         },
         {
             Key = "ESP_WallhackVisibleColor",
@@ -3660,10 +3650,7 @@ pcall(function()
             SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
             SwitcherValue = {1,2,3,4,5,6,7},
             GetFunc = function() return _G.ESPConfig.WallhackVisibleColor or 1 end,
-            SetFunc = function(_, value)
-                _G.ESPConfig.WallhackVisibleColor = value
-                return true
-            end
+            SetFunc = function(_, value) _G.ESPConfig.WallhackVisibleColor = value; return true end
         },
         {
             Key = "ESP_WallhackInvisibleColor",
@@ -3672,43 +3659,26 @@ pcall(function()
             SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
             SwitcherValue = {1,2,3,4,5,6,7},
             GetFunc = function() return _G.ESPConfig.WallhackInvisibleColor or 2 end,
-            SetFunc = function(_, value)
-                _G.ESPConfig.WallhackInvisibleColor = value
-                return true
-            end
+            SetFunc = function(_, value) _G.ESPConfig.WallhackInvisibleColor = value; return true end
         },
         {
             Key = "ESP_WallhackBrightness",
             UI = AliasMap.Slider,
             Text = "Brightness (1-50)",
-            Min = 1,
-            Max = 50,
-            Step = 1,
-            IsPercent = false,
+            Min = 1, Max = 50, Step = 1, IsPercent = false,
             GetFunc = function() return _G.ESPConfig.WallhackBrightness or 25 end,
-            SetFunc = function(_, value)
-                _G.ESPConfig.WallhackBrightness = math.floor(value)
-                return true
-            end
+            SetFunc = function(_, value) _G.ESPConfig.WallhackBrightness = math.floor(value); return true end
         },
         {
             Key = "ESP_WallhackGlow",
             UI = AliasMap.Slider,
             Text = "Glow (0-10)",
-            Min = 0,
-            Max = 10,
-            Step = 0.5,
-            IsPercent = false,
+            Min = 0, Max = 10, Step = 0.5, IsPercent = false,
             GetFunc = function() return _G.ESPConfig.WallhackGlow or 3.0 end,
-            SetFunc = function(_, value)
-                _G.ESPConfig.WallhackGlow = value
-                return true
-            end
+            SetFunc = function(_, value) _G.ESPConfig.WallhackGlow = value; return true end
         },
 
-        -- ============================================================
-        -- SCENE CATEGORY (merged from add.lua)
-        -- ============================================================
+        -- Scene controls
         {
             Key = "Title_Scene",
             UI = AliasMap.Title,
@@ -3810,9 +3780,7 @@ pcall(function()
             end
         },
 
-        -- ============================================================
-        -- CHAMS COLORS (unchanged)
-        -- ============================================================
+        -- CHAMS colors (unchanged)
         {
             Key = "Title_ESP_Colors",
             UI = AliasMap.Title,
@@ -3823,92 +3791,87 @@ pcall(function()
             UI = AliasMap.Switcher,
             Text = "GREEN (Visible)",
             GetFunc = function() return _G.Mod_Chams_GreenEnabled or false end,
-            SetFunc = function(_, value)
-                _G.Mod_Chams_GreenEnabled = value
-                return true
-            end
+            SetFunc = function(_, value) _G.Mod_Chams_GreenEnabled = value; return true end
         },
         {
             Key = "ModMenu_GreenR",
             UI = AliasMap.Slider,
             Text = "Green - Red (0-255)",
             GetFunc = function() return (_G.Mod_Chams_GreenRGB.R or 0) / 255 end,
-            SetFunc = function(_, value)
-                _G.Mod_Chams_GreenRGB.R = math.floor(value * 255)
-                return true
-            end
+            SetFunc = function(_, value) _G.Mod_Chams_GreenRGB.R = math.floor(value * 255); return true end
         },
         {
             Key = "ModMenu_GreenG",
             UI = AliasMap.Slider,
             Text = "Green - Green (0-255)",
             GetFunc = function() return (_G.Mod_Chams_GreenRGB.G or 255) / 255 end,
-            SetFunc = function(_, value)
-                _G.Mod_Chams_GreenRGB.G = math.floor(value * 255)
-                return true
-            end
+            SetFunc = function(_, value) _G.Mod_Chams_GreenRGB.G = math.floor(value * 255); return true end
         },
         {
             Key = "ModMenu_GreenB",
             UI = AliasMap.Slider,
             Text = "Green - Blue (0-255)",
             GetFunc = function() return (_G.Mod_Chams_GreenRGB.B or 0) / 255 end,
-            SetFunc = function(_, value)
-                _G.Mod_Chams_GreenRGB.B = math.floor(value * 255)
-                return true
-            end
+            SetFunc = function(_, value) _G.Mod_Chams_GreenRGB.B = math.floor(value * 255); return true end
         },
         {
             Key = "ModMenu_YellowColor",
             UI = AliasMap.Switcher,
             Text = "YELLOW (Hidden)",
             GetFunc = function() return _G.Mod_Chams_YellowEnabled or false end,
-            SetFunc = function(_, value)
-                _G.Mod_Chams_YellowEnabled = value
-                return true
-            end
+            SetFunc = function(_, value) _G.Mod_Chams_YellowEnabled = value; return true end
         },
         {
             Key = "ModMenu_YellowR",
             UI = AliasMap.Slider,
             Text = "Yellow - Red (0-255)",
             GetFunc = function() return (_G.Mod_Chams_YellowRGB.R or 255) / 255 end,
-            SetFunc = function(_, value)
-                _G.Mod_Chams_YellowRGB.R = math.floor(value * 255)
-                return true
-            end
+            SetFunc = function(_, value) _G.Mod_Chams_YellowRGB.R = math.floor(value * 255); return true end
         },
         {
             Key = "ModMenu_YellowG",
             UI = AliasMap.Slider,
             Text = "Yellow - Green (0-255)",
             GetFunc = function() return (_G.Mod_Chams_YellowRGB.G or 255) / 255 end,
-            SetFunc = function(_, value)
-                _G.Mod_Chams_YellowRGB.G = math.floor(value * 255)
-                return true
-            end
+            SetFunc = function(_, value) _G.Mod_Chams_YellowRGB.G = math.floor(value * 255); return true end
         },
         {
             Key = "ModMenu_YellowB",
             UI = AliasMap.Slider,
             Text = "Yellow - Blue (0-255)",
             GetFunc = function() return (_G.Mod_Chams_YellowRGB.B or 0) / 255 end,
-            SetFunc = function(_, value)
-                _G.Mod_Chams_YellowRGB.B = math.floor(value * 255)
-                return true
-            end
+            SetFunc = function(_, value) _G.Mod_Chams_YellowRGB.B = math.floor(value * 255); return true end
         }
     }
 
-    -- Replace the old Category with the new merged stack
-    for _, cat in ipairs(SettingPageDefine.ModMenu.Category) do
-        if cat.Key == "ModMenu_Main" then
-            cat.Stack = ModMenuStack
-            break
+    -- Register the menu page
+    if not SettingPageDefine.ModMenu then
+        SettingPageDefine.ModMenu = {
+            Key = "ModMenu",
+            loc = "ADITYA_MENU",
+            UIKey = "Setting_Page_Privacy",
+            Category = {
+                {
+                    Key = "ModMenu_Main",
+                    loc = "FEATURES",
+                    Stack = ModMenuStack
+                }
+            }
+        }
+        table.insert(SettingCatalog, SettingPageDefine.ModMenu)
+        print("[MOD] Menu page registered successfully")
+    else
+        -- Update existing menu
+        for _, cat in ipairs(SettingPageDefine.ModMenu.Category) do
+            if cat.Key == "ModMenu_Main" then
+                cat.Stack = ModMenuStack
+                print("[MOD] Menu stack updated")
+                break
+            end
         end
     end
 
-    -- Hook UIManager to show the menu (unchanged)
+    -- Hook UIManager to inject the menu if not already present
     local UIManager = _G.UIManager
     if UIManager and not UIManager._IsModMenuHooked then
         local old_ShowUI = UIManager.ShowUI
@@ -3928,6 +3891,7 @@ pcall(function()
                     if not hasModMenu then
                         table.insert(newCatalog, SettingPageDefine.ModMenu)
                         args[1] = newCatalog
+                        print("[MOD] Injected ModMenu into settings catalog")
                     end
                 end
             end
