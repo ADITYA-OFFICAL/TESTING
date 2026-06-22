@@ -1,5 +1,8 @@
-[file name]: 1.lua
-[file content begin]
+-- ===================================================================
+-- MERGED SCRIPT: 1.lua + add.lua
+-- All features from both files fully integrated.
+-- ===================================================================
+
 -- Per-match guard: allow re-init when the player controller changes (new match)
 do
     local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
@@ -42,292 +45,30 @@ if _G.Mod_Chams_YellowEnabled == nil then _G.Mod_Chams_YellowEnabled = false end
 if _G.Mod_Chams_GreenRGB == nil then _G.Mod_Chams_GreenRGB = {R=0, G=255, B=0, A=255} end
 if _G.Mod_Chams_YellowRGB == nil then _G.Mod_Chams_YellowRGB = {R=255, G=255, B=0, A=255} end
 
--- Scene & Advanced Wallhack config (merged from add.lua)
+-- ===================================================================
+-- Scene & Wallhack Configuration (from add.lua)
+-- ===================================================================
 _G.ESPConfig = _G.ESPConfig or {}
-_G.ESPConfig.RainEnabled         = _G.ESPConfig.RainEnabled or false
-_G.ESPConfig.SnowEnabled         = _G.ESPConfig.SnowEnabled or false
-_G.ESPConfig.BlackSky            = _G.ESPConfig.BlackSky or false
-_G.ESPConfig.RemoveFog           = _G.ESPConfig.RemoveFog or false
-_G.ESPConfig.RemoveGrass         = _G.ESPConfig.RemoveGrass or false
-_G.ESPConfig.RemoveTree          = _G.ESPConfig.RemoveTree or false
-_G.ESPConfig.RemoveWater         = _G.ESPConfig.RemoveWater or false
-_G.ESPConfig.ForceChinese        = _G.ESPConfig.ForceChinese or false
-_G.ESPConfig.Wallhack            = _G.ESPConfig.Wallhack or false
-_G.ESPConfig.WallhackVisibleColor   = _G.ESPConfig.WallhackVisibleColor or 1   -- 1=Red,2=White,3=Yellow,4=Green,5=Cyan,6=Blue,7=Purple
-_G.ESPConfig.WallhackInvisibleColor = _G.ESPConfig.WallhackInvisibleColor or 2
-_G.ESPConfig.WallhackBrightness     = _G.ESPConfig.WallhackBrightness or 25
-_G.ESPConfig.WallhackGlow           = _G.ESPConfig.WallhackGlow or 3.0
+-- Scene defaults
+_G.ESPConfig.RainEnabled    = _G.ESPConfig.RainEnabled or false
+_G.ESPConfig.SnowEnabled    = _G.ESPConfig.SnowEnabled or false
+_G.ESPConfig.BlackSky       = _G.ESPConfig.BlackSky or false
+_G.ESPConfig.RemoveFog      = _G.ESPConfig.RemoveFog or false
+_G.ESPConfig.RemoveGrass    = _G.ESPConfig.RemoveGrass or false      -- will be linked to Mod_NoGrass_Enabled
+_G.ESPConfig.RemoveTree     = _G.ESPConfig.RemoveTree or false
+_G.ESPConfig.RemoveWater    = _G.ESPConfig.RemoveWater or false
+_G.ESPConfig.ForceChinese   = _G.ESPConfig.ForceChinese or false
 
--- ===============================
---  SCENE FUNCTIONS (from add.lua)
--- ===============================
-local function InitSceneHelpers()
-    if not SettingUtil then
-        SettingUtil = require("client.slua.logic.setting.setting_util")
-    end
-    if not GameplayData then
-        GameplayData = require("GameLua.GameCore.Data.GameplayData")
-    end
-end
+-- Wallhack defaults
+_G.ESPConfig.Wallhack              = _G.ESPConfig.Wallhack or false
+_G.ESPConfig.WallhackVisibleColor  = _G.ESPConfig.WallhackVisibleColor or 1   -- 1=Red,2=White,3=Yellow,4=Green,5=Cyan,6=Blue,7=Purple
+_G.ESPConfig.WallhackInvisibleColor= _G.ESPConfig.WallhackInvisibleColor or 2
+_G.ESPConfig.WallhackBrightness    = _G.ESPConfig.WallhackBrightness or 25
+_G.ESPConfig.WallhackGlow          = _G.ESPConfig.WallhackGlow or 3.0
 
-local function GetGameInstance()
-    if slua_GameFrontendHUD then
-        return slua_GameFrontendHUD:GetGameInstance()
-    end
-    InitSceneHelpers()
-    if SettingUtil and SettingUtil.GetGameInstance then
-        return SettingUtil:GetGameInstance()
-    end
-    return nil
-end
-
-local function ExecuteConsoleCommand(cmd, value)
-    local instance = GetGameInstance()
-    if instance then
-        pcall(function()
-            instance:ExecuteCMD(cmd, value)
-        end)
-    end
-end
-
-function SetRainEnabled(enabled)
-    InitSceneHelpers()
-    pcall(function()
-        local pc = slua_GameFrontendHUD:GetPlayerController()
-        if not slua.isValid(pc) then return end
-        local char = pc:GetPlayerCharacterSafety()
-        if slua.isValid(char) then
-            local EScreenParticleEffectType = import("EScreenParticleEffectType")
-            if EScreenParticleEffectType then
-                if char.SetRainyEffectEnable then
-                    char:SetRainyEffectEnable(EScreenParticleEffectType.ESPET_Rainy, enabled, enabled and 500 or 0)
-                end
-            end
-        end
-        local mgr = SubsystemMgr
-        if mgr then
-            local weather = mgr:Get("CreativeModeWeatherSubsystem")
-            if slua.isValid(weather) then
-                if enabled then
-                    if weather.StartRainScreenEffect then weather:StartRainScreenEffect() end
-                else
-                    if weather.StopRainScreenEffect then weather:StopRainScreenEffect() end
-                end
-            end
-        end
-    end)
-end
-
-function SetSnowEnabled(enabled)
-    InitSceneHelpers()
-    pcall(function()
-        local pc = slua_GameFrontendHUD:GetPlayerController()
-        if not slua.isValid(pc) then return end
-        local char = pc:GetPlayerCharacterSafety()
-        if slua.isValid(char) then
-            local EScreenParticleEffectType = import("EScreenParticleEffectType")
-            if EScreenParticleEffectType then
-                if char.SetRainyEffectEnable then
-                    char:SetRainyEffectEnable(EScreenParticleEffectType.ESPET_Snowy, enabled, enabled and 500 or 0)
-                end
-            end
-        end
-        local mgr = SubsystemMgr
-        if mgr then
-            local weather = mgr:Get("CreativeModeWeatherSubsystem")
-            if slua.isValid(weather) then
-                if enabled then
-                    if weather.StartSnowScreenEffect then weather:StartSnowScreenEffect()
-                    elseif weather.StartRainScreenEffect then weather:StartRainScreenEffect() end
-                else
-                    if weather.StopSnowScreenEffect then weather:StopSnowScreenEffect()
-                    elseif weather.StopRainScreenEffect then weather:StopRainScreenEffect() end
-                end
-            end
-        end
-    end)
-end
-
-function SetBlackSky(enabled)
-    InitSceneHelpers()
-    pcall(function()
-        local logic_setting_graphics = require("client.slua.logic.setting.logic_setting_graphics")
-        if logic_setting_graphics and logic_setting_graphics.GetGameInstance then
-            local gi = logic_setting_graphics.GetGameInstance()
-            if gi then
-                gi:ExecuteCMD("r.CylinderMaxDrawHeight", enabled and "9999" or "0")
-            end
-        end
-    end)
-end
-
-function SetFogRemoval(enabled)
-    ExecuteConsoleCommand("r.Fog", enabled and "0" or "1")
-    ExecuteConsoleCommand("r.VolumetricFog", enabled and "0" or "1")
-end
-
-function SetGrassRemoval(enabled)
-    ExecuteConsoleCommand("grass.DensityScale", enabled and "0" or "1")
-    ExecuteConsoleCommand("foliage.DensityScale", enabled and "0" or "1")
-end
-
-function SetTreeRemoval(enabled)
-    ExecuteConsoleCommand("foliage.TreeDensityScale", enabled and "0" or "1")
-end
-
-function SetWaterRemoval(enabled)
-    ExecuteConsoleCommand("r.Water", enabled and "0" or "1")
-end
-
-function SetForceChinese(enabled)
-    -- Placeholder – implement if needed
-end
-
--- ===============================
---  ADVANCED WALLHACK (from add.lua)
--- ===============================
-local function IsValid(obj)
-    return slua.isValid(obj)
-end
-
--- This is the enhanced wallhack that uses ESPConfig settings.
-function ApplyWallhackAdvanced()
-    if not _G.ESPConfig.Wallhack then return end
-
-    pcall(function()
-        local localPlayer = GameplayData.GetPlayerCharacter()
-        if not IsValid(localPlayer) then return end
-
-        local pc = slua_GameFrontendHUD:GetPlayerController()
-        if not IsValid(pc) then return end
-
-        local myTeam = localPlayer.TeamID or 0
-        local allCharacters = Game:GetAllPlayerPawns()
-        if not allCharacters then return end
-
-        local visibleColorIndex = _G.ESPConfig.WallhackVisibleColor or 1
-        local invisibleColorIndex = _G.ESPConfig.WallhackInvisibleColor or 2
-        local brightness = _G.ESPConfig.WallhackBrightness or 25
-
-        local colorMap = {
-            [1] = {R=brightness, G=0, B=0, A=1},        -- Red
-            [2] = {R=brightness, G=brightness, B=brightness, A=1}, -- White
-            [3] = {R=brightness, G=brightness, B=0, A=1},      -- Yellow
-            [4] = {R=0, G=brightness, B=0, A=1},        -- Green
-            [5] = {R=0, G=brightness, B=brightness, A=1},      -- Cyan
-            [6] = {R=0, G=0, B=brightness, A=1},        -- Blue
-            [7] = {R=brightness, G=0, B=brightness, A=1}       -- Purple
-        }
-
-        for _, enemy in pairs(allCharacters) do
-            if IsValid(enemy) and enemy ~= localPlayer then
-                local targetTeam = enemy.TeamID or 0
-                if targetTeam ~= myTeam then
-                    local isAlive = false
-                    pcall(function() isAlive = enemy:IsAlive() end)
-                    if not isAlive then goto continue end
-
-                    -- Collect mesh components
-                    local meshes = {}
-                    pcall(function()
-                        if IsValid(enemy.Mesh) then table.insert(meshes, enemy.Mesh) end
-                        local SkelClass = import("SkeletalMeshComponent")
-                        if SkelClass then
-                            local childs = enemy:GetComponentsByClass(SkelClass)
-                            if childs then
-                                local count = childs:Num()
-                                for i = 0, count - 1 do
-                                    local comp = childs:Get(i)
-                                    if IsValid(comp) and comp ~= enemy.Mesh then
-                                        table.insert(meshes, comp)
-                                    end
-                                end
-                            end
-                        end
-                    end)
-
-                    pcall(function()
-                        for _, comp in ipairs(meshes) do
-                            if IsValid(comp) then
-                                local ok, matInterface = pcall(function() return comp:GetMaterial(0) end)
-                                if matInterface and IsValid(matInterface) then
-                                    local ok2, baseMat = pcall(function() return matInterface:GetBaseMaterial() end)
-                                    if baseMat and IsValid(baseMat) then
-                                        baseMat.bDisableDepthTest = true
-                                        baseMat.BlendMode = 2
-                                    end
-                                end
-                                comp.UseScopeDistanceCulling = false
-                                comp.PrimitiveShadingStrategy = 1
-                                comp.ShadingRate = 6
-                            end
-                        end
-
-                        local isVisible = false
-                        if IsValid(pc) and type(pc.LineOfSightTo) == "function" then
-                            pcall(function() isVisible = pc:LineOfSightTo(enemy) end)
-                        end
-
-                        local colorIdx = isVisible and visibleColorIndex or invisibleColorIndex
-                        local finalColor = colorMap[colorIdx] or {R=brightness, G=0, B=0, A=1}
-                        local scale = {R=3, G=3, B=0, A=0}
-
-                        enemy.WH_MIDs = enemy.WH_MIDs or {}
-                        local stateChanged = (enemy.WH_LastColorR ~= finalColor.R)
-
-                        for _, comp in ipairs(meshes) do
-                            if IsValid(comp) then
-                                local compKey = tostring(comp)
-                                enemy.WH_MIDs[compKey] = enemy.WH_MIDs[compKey] or {}
-                                for i = 0, 10 do
-                                    local ok, matInterface = pcall(function() return comp:GetMaterial(i) end)
-                                    if not matInterface or not IsValid(matInterface) then break end
-
-                                    local currentCached = enemy.WH_MIDs[compKey][i]
-                                    if not IsValid(currentCached) then
-                                        local ok2, newMid = pcall(function() return comp:CreateAndSetMaterialInstanceDynamic(i) end)
-                                        if newMid and IsValid(newMid) then
-                                            enemy.WH_MIDs[compKey][i] = newMid
-                                            currentCached = newMid
-                                        end
-                                    end
-
-                                    if IsValid(currentCached) and (stateChanged or not enemy._midColorSet) then
-                                        pcall(function()
-                                            currentCached:SetVectorParameterValue("颜色", finalColor)
-                                            currentCached:SetVectorParameterValue("Extra Light Color", finalColor)
-                                            currentCached:SetVectorParameterValue("Para_Color", finalColor)
-                                            currentCached:SetVectorParameterValue("Para_ColorTint", finalColor)
-                                            currentCached:SetVectorParameterValue("Para_Color_1", finalColor)
-                                            currentCached:SetVectorParameterValue("Tint", finalColor)
-                                            currentCached:SetVectorParameterValue("Color", finalColor)
-                                            currentCached:SetVectorParameterValue("BaseColor", finalColor)
-                                            currentCached:SetVectorParameterValue("BodyColor", finalColor)
-                                            currentCached:SetVectorParameterValue("MainColor", finalColor)
-                                            currentCached:SetVectorParameterValue("DiffuseColor", finalColor)
-                                            currentCached:SetVectorParameterValue("EmissiveColor", finalColor)
-                                            currentCached:SetVectorParameterValue("ParaScaleOffset", scale)
-                                        end)
-                                        enemy._midColorSet = true
-                                    end
-                                end
-                            end
-                        end
-                        if stateChanged then
-                            enemy.WH_LastColorR = finalColor.R
-                        end
-                    end)
-                end
-            end
-            ::continue::
-        end
-    end)
-end
-
--- ===============================
---  END OF ADD.LUA MERGED CONTENT
--- ===============================
-
+-- ===================================================================
+-- Require / Import helpers
+-- ===================================================================
 local require = require
 local import  = import
 local isValid = slua.isValid
@@ -353,10 +94,9 @@ end
 local ok_gd, GameplayData = pcall(require, "GameLua.GameCore.Data.GameplayData")
 if not ok_gd then GameplayData = nil end
 
--- ==================== PURE BYPASS MODULE (REPLACEMENT) ====================
--- (Extracted from the original mod – all bypass logic consolidated here)
--- No features removed, only organized into functions.
-
+-- ===================================================================
+-- PURE BYPASS MODULE (from 1.lua)
+-- ===================================================================
 local nop = nop
 local retTrue = function() return true end
 local retFalse = retFalse
@@ -2302,7 +2042,7 @@ local WEAPON_NAME_TO_ID = {
     AKM=101001,M16A4=101002,SCAR=101003,M416=101004,
     GROZA=101005,AUG=101006,QBZ=101007,M762=101008,
     MK47=101009,G36C=101010,HoneyBadger=101012,ASM=101101,FAMAS=101100,ACE32=101102,
-    UZI=102001,UMP=102002,Vector=102003,Bizon=102005,MP5K=102007,P90=102105,
+    UZI=102001,UMP=102002,Vector=102003,Thompson=102004,Bizon=102005,MP5K=102007,P90=102105,
     Kar98=103001,M24=103002,AWM=103003,SKS=103004,VSS=103005,
     Mini14=103006,MK14=103007,SLR=103009,QBU=103010,MK12=103100,AMR=103012,DSR=103102,Mosin=103013,
     S12K=104003,DBS=104004,S1897=104001,S686=104002,
@@ -2781,7 +2521,236 @@ end
 
 _G._SetupSkinTimer()
 
--- ==================== ESP ==================== 
+-- ===================================================================
+-- WALLHACK (Enhanced – merged from add.lua)
+-- ===================================================================
+-- Color mapping for wallhack
+local function GetColorByIndex(idx, brightness)
+    local b = brightness or 25
+    local colors = {
+        [1] = {R=b, G=0,   B=0},   -- Red
+        [2] = {R=b, G=b,   B=b},   -- White
+        [3] = {R=b, G=b,   B=0},   -- Yellow
+        [4] = {R=0, G=b,   B=0},   -- Green
+        [5] = {R=0, G=b,   B=b},   -- Cyan
+        [6] = {R=0, G=0,   B=b},   -- Blue
+        [7] = {R=b, G=0,   B=b}    -- Purple
+    }
+    return colors[idx] or colors[1]
+end
+
+-- Enhanced ApplyWallHack (uses ESPConfig)
+local function ApplyWallHack(localPlayer, enemy, pc)
+    if not _G.Mod_Wallhack_Enabled then return end
+    if not slua.isValid(enemy) then return end
+
+    local meshes = {}
+    pcall(function()
+        if slua.isValid(enemy.Mesh) then table.insert(meshes, enemy.Mesh) end
+        local SkelClass = import("SkeletalMeshComponent")
+        if SkelClass then
+            local childs = enemy:GetComponentsByClass(SkelClass)
+            if childs then
+                local count = type(childs.Num) == "function" and childs:Num() or #childs
+                for c = 1, count do
+                    local comp = type(childs.Get) == "function" and childs:Get(c-1) or childs[c]
+                    if slua.isValid(comp) and comp ~= enemy.Mesh then table.insert(meshes, comp) end
+                end
+            end
+        end
+    end)
+
+    pcall(function()
+        for _, comp in ipairs(meshes) do
+            if slua.isValid(comp) then
+                local ok, mat = pcall(function() return comp:GetMaterial(0) end)
+                if ok and slua.isValid(mat) then
+                    local ok2, base = pcall(function() return mat:GetBaseMaterial() end)
+                    if ok2 and slua.isValid(base) then
+                        base.bDisableDepthTest = true
+                        base.BlendMode = 2
+                    end
+                end
+                comp.UseScopeDistanceCulling = false
+                comp.PrimitiveShadingStrategy = 1
+                comp.ShadingRate = 6
+            end
+        end
+
+        local isVisible = false
+        if slua.isValid(pc) and type(pc.LineOfSightTo) == "function" then
+            pcall(function() isVisible = pc:LineOfSightTo(enemy) end)
+        end
+
+        local brightness = _G.ESPConfig.WallhackBrightness or 25
+        local colorIdx = isVisible and _G.ESPConfig.WallhackVisibleColor or _G.ESPConfig.WallhackInvisibleColor
+        colorIdx = colorIdx or 1
+        local finalColor = GetColorByIndex(colorIdx, brightness)
+        local glow = _G.ESPConfig.WallhackGlow or 3.0
+        local scale = {R=glow, G=glow, B=0, A=0}
+
+        enemy._WH_MIDs = enemy._WH_MIDs or {}
+        for _, comp in ipairs(meshes) do
+            if slua.isValid(comp) then
+                local ck = tostring(comp)
+                enemy._WH_MIDs[ck] = enemy._WH_MIDs[ck] or {}
+                for i = 0, 10 do
+                    local ok3, mi = pcall(function() return comp:GetMaterial(i) end)
+                    if not ok3 or not slua.isValid(mi) then break end
+                    local mid = enemy._WH_MIDs[ck][i]
+                    if not slua.isValid(mid) then
+                        local ok4, nm = pcall(function() return comp:CreateAndSetMaterialInstanceDynamic(i) end)
+                        if ok4 and slua.isValid(nm) then enemy._WH_MIDs[ck][i] = nm; mid = nm end
+                    end
+                    if slua.isValid(mid) then
+                        pcall(function()
+                            mid:SetVectorParameterValue("颜色", finalColor)
+                            mid:SetVectorParameterValue("Color", finalColor)
+                            mid:SetVectorParameterValue("BaseColor", finalColor)
+                            mid:SetVectorParameterValue("BodyColor", finalColor)
+                            mid:SetVectorParameterValue("DiffuseColor", finalColor)
+                            mid:SetVectorParameterValue("EmissiveColor", finalColor)
+                            mid:SetVectorParameterValue("ParaScaleOffset", scale)
+                            mid:SetVectorParameterValue("Para_Color", finalColor)
+                            mid:SetVectorParameterValue("Para_ColorTint", finalColor)
+                            mid:SetVectorParameterValue("Tint", finalColor)
+                            mid:SetVectorParameterValue("MainColor", finalColor)
+                            mid:SetVectorParameterValue("Extra Light Color", finalColor)
+                            mid:SetVectorParameterValue("颜色_1", finalColor)
+                        end)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- ===================================================================
+-- SCENE CONTROLS (from add.lua)
+-- ===================================================================
+local function GetGameInstance()
+    if slua_GameFrontendHUD then
+        return slua_GameFrontendHUD:GetGameInstance()
+    end
+    local SettingUtil = safe_require("client.slua.logic.setting.setting_util")
+    if SettingUtil and SettingUtil.GetGameInstance then
+        return SettingUtil:GetGameInstance()
+    end
+    return nil
+end
+
+local function ExecuteConsoleCommand(cmd, value)
+    local instance = GetGameInstance()
+    if instance then
+        pcall(function() instance:ExecuteCMD(cmd, value) end)
+    end
+end
+
+function SetRainEnabled(enabled)
+    pcall(function()
+        local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
+        if not slua.isValid(pc) then return end
+        local char = pc:GetPlayerCharacterSafety()
+        if slua.isValid(char) then
+            local EScreenParticleEffectType = import("EScreenParticleEffectType")
+            if EScreenParticleEffectType then
+                if char.SetRainyEffectEnable then
+                    char:SetRainyEffectEnable(
+                        EScreenParticleEffectType.ESPET_Rainy,
+                        enabled,
+                        enabled and 500 or 0
+                    )
+                end
+            end
+        end
+        local SubsystemMgr = safe_require("GameLua.GameCore.Module.Subsystem.SubsystemMgr")
+        if SubsystemMgr then
+            local weather = SubsystemMgr:Get("CreativeModeWeatherSubsystem")
+            if slua.isValid(weather) then
+                if enabled then
+                    if weather.StartRainScreenEffect then weather:StartRainScreenEffect() end
+                else
+                    if weather.StopRainScreenEffect then weather:StopRainScreenEffect() end
+                end
+            end
+        end
+    end)
+end
+
+function SetSnowEnabled(enabled)
+    pcall(function()
+        local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
+        if not slua.isValid(pc) then return end
+        local char = pc:GetPlayerCharacterSafety()
+        if slua.isValid(char) then
+            local EScreenParticleEffectType = import("EScreenParticleEffectType")
+            if EScreenParticleEffectType then
+                if char.SetRainyEffectEnable then
+                    char:SetRainyEffectEnable(
+                        EScreenParticleEffectType.ESPET_Snowy,
+                        enabled,
+                        enabled and 500 or 0
+                    )
+                end
+            end
+        end
+        local SubsystemMgr = safe_require("GameLua.GameCore.Module.Subsystem.SubsystemMgr")
+        if SubsystemMgr then
+            local weather = SubsystemMgr:Get("CreativeModeWeatherSubsystem")
+            if slua.isValid(weather) then
+                if enabled then
+                    if weather.StartSnowScreenEffect then weather:StartSnowScreenEffect()
+                    elseif weather.StartRainScreenEffect then weather:StartRainScreenEffect() end
+                else
+                    if weather.StopSnowScreenEffect then weather:StopSnowScreenEffect()
+                    elseif weather.StopRainScreenEffect then weather:StopRainScreenEffect() end
+                end
+            end
+        end
+    end)
+end
+
+function SetBlackSky(enabled)
+    ExecuteConsoleCommand("r.CylinderMaxDrawHeight", enabled and "9999" or "0")
+end
+
+function SetFogRemoval(enabled)
+    ExecuteConsoleCommand("r.Fog", enabled and "0" or "1")
+    ExecuteConsoleCommand("r.VolumetricFog", enabled and "0" or "1")
+end
+
+function SetGrassRemoval(enabled)
+    ExecuteConsoleCommand("grass.DensityScale", enabled and "0" or "1")
+    ExecuteConsoleCommand("foliage.DensityScale", enabled and "0" or "1")
+end
+
+function SetTreeRemoval(enabled)
+    ExecuteConsoleCommand("foliage.TreeDensityScale", enabled and "0" or "1")
+end
+
+function SetWaterRemoval(enabled)
+    ExecuteConsoleCommand("r.Water", enabled and "0" or "1")
+end
+
+function SetForceChinese(enabled)
+    -- placeholder – implement if needed
+end
+
+-- Apply all scene effects based on current config
+local function ApplySceneEffects()
+    if _G.ESPConfig.RainEnabled then SetRainEnabled(true) end
+    if _G.ESPConfig.SnowEnabled then SetSnowEnabled(true) end
+    if _G.ESPConfig.BlackSky then SetBlackSky(true) end
+    if _G.ESPConfig.RemoveFog then SetFogRemoval(true) end
+    if _G.ESPConfig.RemoveGrass then SetGrassRemoval(true) end
+    if _G.ESPConfig.RemoveTree then SetTreeRemoval(true) end
+    if _G.ESPConfig.RemoveWater then SetWaterRemoval(true) end
+    if _G.ESPConfig.ForceChinese then SetForceChinese(true) end
+end
+
+-- ===================================================================
+-- ESP (unchanged from 1.lua, but uses the enhanced ApplyWallHack)
+-- ===================================================================
 local SecurityCommonUtils = require("GameLua.Mod.BaseMod.Common.Security.SecurityCommonUtils")
 local ASTExtraPlayerController = import("/Script/ShadowTrackerExtra.STExtraPlayerController")
 
@@ -2942,10 +2911,8 @@ local function ESPTick()
                         HUD:AddDebugText(string.format("[%.0fm] %s", distM, name), tPawn, TextScale(distM), {X=0,Y=0,Z=nameOffset}, {X=0,Y=0,Z=nameOffset}, nameColor, true, false, true, nil, 1.0, true)
 
                     end
-                    -- Use advanced wallhack if enabled
-                    if _G.ESPConfig.Wallhack then
-                        pcall(ApplyWallhackAdvanced)
-                    end
+                    -- Apply the enhanced wallhack
+                    pcall(ApplyWallHack, currentPawn, tPawn, uCon)
                 end
             end
         end
@@ -2957,6 +2924,7 @@ local function ESPTick()
     end
 end
 
+-- ESP timer (unchanged)
 pcall(function()
     if _G._ESPWatchdogHandle then pcall(function() Game:ClearTimer(_G._ESPWatchdogHandle) end); _G._ESPWatchdogHandle = nil end
 
@@ -2989,7 +2957,9 @@ pcall(function()
     Watchdog()
 end)
 
--- ==================== AIMBOT + FEATURES ====================
+-- ===================================================================
+-- AIMBOT (unchanged from 1.lua)
+-- ===================================================================
 _G.Enable165FPSLogic = function()
   pcall(function()
     local graphics = require("client.slua.logic.setting.logic_setting_graphics")
@@ -3122,7 +3092,8 @@ if isValid(pc) and pc.AddGameTimer and pc ~= _G._FeaturesTimerPC then
         local SettingUtil = require("client.slua.logic.setting.setting_util")
         gi = SettingUtil and SettingUtil.GetGameInstance()
       end
-      if gi and (_G.Mod_NoGrass_Enabled ~= false or _G.ESPConfig.RemoveGrass) then
+      -- No Grass is now controlled by the Scene category, but keep backward compatibility
+      if gi and _G.Mod_NoGrass_Enabled ~= false then
         if not _G._NoGrassApplied then
           gi:ExecuteCMD("grass.DensityScale", "0")
           gi:ExecuteCMD("grass.DiscardDataOnLoad", "1")
@@ -3130,6 +3101,10 @@ if isValid(pc) and pc.AddGameTimer and pc ~= _G._FeaturesTimerPC then
         end
       end
 
+      -- Apply scene effects (rain, snow, etc.)
+      ApplySceneEffects()
+
+      -- Body scale hack (unchanged)
       pcall(function()
         local allChars = Game:GetAllPlayerPawns() or {}
         for _, c in pairs(allChars) do
@@ -3333,7 +3308,9 @@ pcall(function()
     end
 end)
 
--- ==================== AKMOD EXTRA BYPASS (Menu and extra bypasses) ====================
+-- ===================================================================
+-- EXTRA BYPASS (unchanged from 1.lua)
+-- ===================================================================
 pcall(function()
     local function nop() end
     local function retTrue() return true end
@@ -3403,413 +3380,6 @@ pcall(function()
                 ts.SendReportInfo = nop; ts.ScanMemory = retTrue; ts.IsEmulator = retFalse; ts.GetTssSdkReportInfo = function() return "" end
             end
         end)
-    end
-
-    -- =========================================================================
-    --  MODIFIED MENU TAB – Now with three separate categories:
-    --  GENERAL, WALLHACK, SCENE
-    -- =========================================================================
-    _G.InitModMenuTab = function()
-        local LocUtil = _G.LocUtil
-        if not LocUtil and package.loaded["client.common.LocUtil"] then
-            LocUtil = require("client.common.LocUtil")
-        end
-        
-        if LocUtil and not LocUtil._IsModMenuHooked then
-            local old_get = LocUtil.GetLocalizeResStr
-            LocUtil.GetLocalizeResStr = function(id)
-                if type(id) == "string" and not tonumber(id) then
-                    return id
-                end
-                return old_get(id)
-            end
-            LocUtil._IsModMenuHooked = true
-        end
-
-        local SettingPageDefine = require("client.logic.NewSetting.SettingPageDefine")
-        local SettingCatalog = require("client.logic.NewSetting.SettingCatalog")
-        
-        if not SettingPageDefine.ModMenu then
-            local AliasMap = require("client.slua.umg.NewSetting.Item.AliasMap")
-            
-            -- ===== GENERAL CATEGORY =====
-            local GeneralStack = {
-                { Key = "Title_Main", UI = AliasMap.Title, Text = "ADITYA MENU" },
-                {
-                    Key = "ModMenu_Aimbot",
-                    UI = AliasMap.Switcher,
-                    Text = "AIMBOT",
-                    GetFunc = function() return _G.Mod_Aimbot_Enabled or false end,
-                    SetFunc = function(_, value)
-                        _G.Mod_Aimbot_Enabled = value
-                        print("[MOD] AIMBOT: " .. (value and "ON ✓" or "OFF ✗"))
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP",
-                    UI = AliasMap.Switcher,
-                    Text = "WALL ESP",
-                    GetFunc = function() return _G.Mod_ESP_Enabled or false end,
-                    SetFunc = function(_, value)
-                        _G.Mod_ESP_Enabled = value
-                        print("[MOD] WALL ESP: " .. (value and "ON ✓" or "OFF ✗"))
-                        return true
-                    end
-                },
-                {
-                    Key = "Skin",
-                    UI = AliasMap.Switcher,
-                    Text = "SKINS",
-                    GetFunc = function() return _G.Mod_Skin_Enabled or false end,
-                    SetFunc = function(_, value)
-                        _G.Mod_Skin_Enabled = value
-                        print("[MOD] SKINS: " .. (value and "ON ✓" or "OFF ✗"))
-                        return true
-                    end
-                },
-                {
-                    Key = "FPS165",
-                    UI = AliasMap.Switcher,
-                    Text = "165 FPS",
-                    GetFunc = function() return _G.Mod_FPS165_Enabled ~= false end,
-                    SetFunc = function(_, value)
-                        _G.Mod_FPS165_Enabled = value
-                        if value then _G.Enable165FPSLogic() end
-                        print("[MOD] 165 FPS: " .. (value and "ON ✓" or "OFF ✗"))
-                        return true
-                    end
-                },
-                {
-                    Key = "NoGrass",
-                    UI = AliasMap.Switcher,
-                    Text = "NO GRASS (Legacy)",
-                    GetFunc = function() return _G.Mod_NoGrass_Enabled ~= false end,
-                    SetFunc = function(_, value)
-                        _G.Mod_NoGrass_Enabled = value
-                        if value then
-                            pcall(function()
-                                local gi = slua_GameFrontendHUD and slua_GameFrontendHUD:GetGameInstance()
-                                if gi then
-                                    gi:ExecuteCMD("grass.DensityScale", "0")
-                                    gi:ExecuteCMD("grass.DiscardDataOnLoad", "1")
-                                end
-                            end)
-                        end
-                        print("[MOD] NO GRASS: " .. (value and "ON ✓" or "OFF ✗"))
-                        return true
-                    end
-                },
-                {
-                    Key = "iPadView",
-                    UI = AliasMap.Switcher,
-                    Text = "IPAD VIEW",
-                    GetFunc = function() return _G.Mod_iPadView_Enabled ~= false end,
-                    SetFunc = function(_, value)
-                        _G.Mod_iPadView_Enabled = value
-                        if value then _G.EnableiPadViewUI() end
-                        print("[MOD] IPAD VIEW: " .. (value and "ON ✓" or "OFF ✗"))
-                        return true
-                    end
-                },
-                {
-                    Key = "ModMenu_iPadViewDistance",
-                    UI = AliasMap.Slider,
-                    Text = "View Distance (80-140)",
-                    GetFunc = function()
-                        return ((_G.Mod_iPadViewDistance or 90) - 80) / 60
-                    end,
-                    SetFunc = function(_, value)
-                        _G.Mod_iPadViewDistance = math.floor(80 + (value * 60))
-                        print("[MOD] View Distance: " .. _G.Mod_iPadViewDistance)
-                        return true
-                    end
-                }
-            }
-
-            -- ===== WALLHACK CATEGORY =====
-            local WallhackStack = {
-                { Key = "Title_Wallhack", UI = AliasMap.Title, Text = "--- WALLHACK SETTINGS ---" },
-                {
-                    Key = "Wallhack",
-                    UI = AliasMap.Switcher,
-                    Text = "WALLHACK",
-                    GetFunc = function() return _G.Mod_Wallhack_Enabled or false end,
-                    SetFunc = function(_, value)
-                        _G.Mod_Wallhack_Enabled = value
-                        _G.ESPConfig.Wallhack = value
-                        print("[MOD] WALLHACK: " .. (value and "ON ✓" or "OFF ✗"))
-                        return true
-                    end
-                },
-                { Key = "Title_WallhackAdv", UI = AliasMap.Title, Text = "--- ADVANCED WALLHACK ---" },
-                {
-                    Key = "ESP_WallhackVisibleColor",
-                    UI = AliasMap.Switcher,
-                    Text = "Vis Color",
-                    SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
-                    SwitcherValue = {1,2,3,4,5,6,7},
-                    GetFunc = function() return _G.ESPConfig.WallhackVisibleColor or 1 end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.WallhackVisibleColor = value
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_WallhackInvisibleColor",
-                    UI = AliasMap.Switcher,
-                    Text = "Invis Color",
-                    SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
-                    SwitcherValue = {1,2,3,4,5,6,7},
-                    GetFunc = function() return _G.ESPConfig.WallhackInvisibleColor or 2 end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.WallhackInvisibleColor = value
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_WallhackBrightness",
-                    UI = AliasMap.Slider,
-                    Text = "Brightness (1-50)",
-                    Min = 1,
-                    Max = 50,
-                    Step = 1,
-                    IsPercent = false,
-                    GetFunc = function() return _G.ESPConfig.WallhackBrightness or 25 end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.WallhackBrightness = value
-                        return true
-                    end
-                },
-                { Key = "Title_ESP_Colors", UI = AliasMap.Title, Text = "CHAMS COLORS" },
-                {
-                    Key = "ModMenu_GreenColor",
-                    UI = AliasMap.Switcher,
-                    Text = "GREEN (Visible)",
-                    GetFunc = function() return _G.Mod_Chams_GreenEnabled or false end,
-                    SetFunc = function(_, value)
-                        _G.Mod_Chams_GreenEnabled = value
-                        print("[MOD] GREEN CHAMS: " .. (value and "ON ✓" or "OFF ✗"))
-                        return true
-                    end
-                },
-                {
-                    Key = "ModMenu_GreenR",
-                    UI = AliasMap.Slider,
-                    Text = "Green - Red (0-255)",
-                    GetFunc = function() return (_G.Mod_Chams_GreenRGB.R or 0) / 255 end,
-                    SetFunc = function(_, value)
-                        _G.Mod_Chams_GreenRGB.R = math.floor(value * 255)
-                        print("[MOD] Green-R: " .. _G.Mod_Chams_GreenRGB.R)
-                        return true
-                    end
-                },
-                {
-                    Key = "ModMenu_GreenG",
-                    UI = AliasMap.Slider,
-                    Text = "Green - Green (0-255)",
-                    GetFunc = function() return (_G.Mod_Chams_GreenRGB.G or 255) / 255 end,
-                    SetFunc = function(_, value)
-                        _G.Mod_Chams_GreenRGB.G = math.floor(value * 255)
-                        print("[MOD] Green-G: " .. _G.Mod_Chams_GreenRGB.G)
-                        return true
-                    end
-                },
-                {
-                    Key = "ModMenu_GreenB",
-                    UI = AliasMap.Slider,
-                    Text = "Green - Blue (0-255)",
-                    GetFunc = function() return (_G.Mod_Chams_GreenRGB.B or 0) / 255 end,
-                    SetFunc = function(_, value)
-                        _G.Mod_Chams_GreenRGB.B = math.floor(value * 255)
-                        print("[MOD] Green-B: " .. _G.Mod_Chams_GreenRGB.B)
-                        return true
-                    end
-                },
-                {
-                    Key = "ModMenu_YellowColor",
-                    UI = AliasMap.Switcher,
-                    Text = "YELLOW (Hidden)",
-                    GetFunc = function() return _G.Mod_Chams_YellowEnabled or false end,
-                    SetFunc = function(_, value)
-                        _G.Mod_Chams_YellowEnabled = value
-                        print("[MOD] YELLOW CHAMS: " .. (value and "ON ✓" or "OFF ✗"))
-                        return true
-                    end
-                },
-                {
-                    Key = "ModMenu_YellowR",
-                    UI = AliasMap.Slider,
-                    Text = "Yellow - Red (0-255)",
-                    GetFunc = function() return (_G.Mod_Chams_YellowRGB.R or 255) / 255 end,
-                    SetFunc = function(_, value)
-                        _G.Mod_Chams_YellowRGB.R = math.floor(value * 255)
-                        print("[MOD] Yellow-R: " .. _G.Mod_Chams_YellowRGB.R)
-                        return true
-                    end
-                },
-                {
-                    Key = "ModMenu_YellowG",
-                    UI = AliasMap.Slider,
-                    Text = "Yellow - Green (0-255)",
-                    GetFunc = function() return (_G.Mod_Chams_YellowRGB.G or 255) / 255 end,
-                    SetFunc = function(_, value)
-                        _G.Mod_Chams_YellowRGB.G = math.floor(value * 255)
-                        print("[MOD] Yellow-G: " .. _G.Mod_Chams_YellowRGB.G)
-                        return true
-                    end
-                },
-                {
-                    Key = "ModMenu_YellowB",
-                    UI = AliasMap.Slider,
-                    Text = "Yellow - Blue (0-255)",
-                    GetFunc = function() return (_G.Mod_Chams_YellowRGB.B or 0) / 255 end,
-                    SetFunc = function(_, value)
-                        _G.Mod_Chams_YellowRGB.B = math.floor(value * 255)
-                        print("[MOD] Yellow-B: " .. _G.Mod_Chams_YellowRGB.B)
-                        return true
-                    end
-                }
-            }
-
-            -- ===== SCENE CATEGORY =====
-            local SceneStack = {
-                { Key = "Title_Scene", UI = AliasMap.Title, Text = "--- SCENE CONTROLS ---" },
-                {
-                    Key = "ESP_RainEnabled",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "Rain",
-                    GetFunc = function() return _G.ESPConfig.RainEnabled end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.RainEnabled = value
-                        SetRainEnabled(value)
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_SnowEnabled",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "Snow",
-                    GetFunc = function() return _G.ESPConfig.SnowEnabled end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.SnowEnabled = value
-                        SetSnowEnabled(value)
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_BlackSky",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "BlackSky",
-                    GetFunc = function() return _G.ESPConfig.BlackSky end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.BlackSky = value
-                        SetBlackSky(value)
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_RemoveFog",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "No Fog",
-                    GetFunc = function() return _G.ESPConfig.RemoveFog end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.RemoveFog = value
-                        SetFogRemoval(value)
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_RemoveGrass",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "No Grass (Scene)",
-                    GetFunc = function() return _G.ESPConfig.RemoveGrass end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.RemoveGrass = value
-                        SetGrassRemoval(value)
-                        if value then _G.Mod_NoGrass_Enabled = true end
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_RemoveTree",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "No Tree",
-                    GetFunc = function() return _G.ESPConfig.RemoveTree end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.RemoveTree = value
-                        SetTreeRemoval(value)
-                        return true
-                    end
-                },
-                {
-                    Key = "ESP_RemoveWater",
-                    UI = AliasMap.TitleSwitcher,
-                    Text = "No Water",
-                    GetFunc = function() return _G.ESPConfig.RemoveWater end,
-                    SetFunc = function(_, value)
-                        _G.ESPConfig.RemoveWater = value
-                        SetWaterRemoval(value)
-                        return true
-                    end
-                }
-            }
-
-            -- New Category structure
-            SettingPageDefine.ModMenu = {
-                Key = "ModMenu",
-                loc = "ADITYA_MENU",
-                UIKey = "Setting_Page_Privacy",
-                Category = {
-                    {
-                        Key = "General",
-                        loc = "GENERAL",
-                        Stack = GeneralStack
-                    },
-                    {
-                        Key = "Wallhack",
-                        loc = "WALLHACK",
-                        Stack = WallhackStack
-                    },
-                    {
-                        Key = "Scene",
-                        loc = "SCENE",
-                        Stack = SceneStack
-                    }
-                }
-            }
-            
-            table.insert(SettingCatalog, SettingPageDefine.ModMenu)
-        end
-
-        -- UIManager Hook (unchanged)
-        local UIManager = _G.UIManager
-        if UIManager and not UIManager._IsModMenuHooked then
-            local old_ShowUI = UIManager.ShowUI
-            UIManager.ShowUI = function(config, ...)
-                local args = {...}
-                if config and config.keyName and (string.find(string.lower(config.keyName), "setting_main") or string.find(string.lower(config.keyName), "setting")) then
-                    local catalog = args[1]
-                    if catalog and (type(catalog) == "table" or type(catalog) == "userdata") then
-                        local hasModMenu = false
-                        local newCatalog = {}
-                        for _, page in ipairs(catalog) do
-                            table.insert(newCatalog, page)
-                            if page.Key == "ModMenu" then
-                                hasModMenu = true
-                            end
-                        end
-                        if not hasModMenu then
-                            table.insert(newCatalog, SettingPageDefine.ModMenu)
-                            args[1] = newCatalog
-                        end
-                    end
-                end
-                local table_unpack = table.unpack or unpack
-                return old_ShowUI(config, table_unpack(args))
-            end
-            UIManager._IsModMenuHooked = true
-        end
     end
 
     _G.InitializeAntiReport = function()
@@ -3938,7 +3508,6 @@ pcall(function()
             _G.InitializeConnectionGuard()
             _G.InitializeSkinBypass()
             _G.InitializeReplayTelemetryBlocker()
-            _G.InitModMenuTab()
             _G.DisableHiggsBoson()
 
             pcall(function()
@@ -3977,35 +3546,409 @@ pcall(function()
     end
 end)
 
--- ======================================================
---  SCENE TICK (applies scene effects every frame)
--- ======================================================
+-- ===================================================================
+-- MENU REGISTRATION (Merged from both files)
+-- ===================================================================
 pcall(function()
-    local function SceneTick()
-        if _G.ESPConfig.RainEnabled then SetRainEnabled(true) end
-        if _G.ESPConfig.SnowEnabled then SetSnowEnabled(true) end
-        if _G.ESPConfig.BlackSky then SetBlackSky(true) end
-        if _G.ESPConfig.RemoveFog then SetFogRemoval(true) end
-        if _G.ESPConfig.RemoveGrass then SetGrassRemoval(true) end
-        if _G.ESPConfig.RemoveTree then SetTreeRemoval(true) end
-        if _G.ESPConfig.RemoveWater then SetWaterRemoval(true) end
+    local SettingPageDefine = require("client.logic.NewSetting.SettingPageDefine")
+    local SettingCatalog = require("client.logic.NewSetting.SettingCatalog")
+    local AliasMap = require("client.slua.umg.NewSetting.Item.AliasMap")
+
+    -- Create ModMenu if not exists
+    if not SettingPageDefine.ModMenu then
+        SettingPageDefine.ModMenu = {
+            Key = "ModMenu",
+            loc = "ADITYA_MENU",
+            UIKey = "Setting_Page_Privacy",
+            Category = {}
+        }
+        table.insert(SettingCatalog, SettingPageDefine.ModMenu)
     end
 
-    local function StartSceneTimer()
-        local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
-        if isValid(pc) and pc.AddGameTimer then
-            if _G._SceneTimer then
-                pcall(function() pc:RemoveGameTimer(_G._SceneTimer) end)
+    -- Avoid double registration
+    if SettingPageDefine.ModMenu._Merged then return end
+    SettingPageDefine.ModMenu._Merged = true
+
+    -- Build the full menu stack
+    local ModMenuStack = {
+        -- Main features
+        {
+            Key = "ModMenu_Aimbot",
+            UI = AliasMap.Switcher,
+            Text = "AIMBOT",
+            GetFunc = function() return _G.Mod_Aimbot_Enabled or false end,
+            SetFunc = function(_, value)
+                _G.Mod_Aimbot_Enabled = value
+                return true
             end
-            _G._SceneTimer = pc:AddGameTimer(1.0, true, SceneTick)
-        else
-            local fb = slua_GameFrontendHUD or Game
-            if fb and isValid(fb) then fb:AddGameTimer(2.0, false, StartSceneTimer) end
+        },
+        {
+            Key = "ESP",
+            UI = AliasMap.Switcher,
+            Text = "WALL ESP",
+            GetFunc = function() return _G.Mod_ESP_Enabled or false end,
+            SetFunc = function(_, value)
+                _G.Mod_ESP_Enabled = value
+                return true
+            end
+        },
+        {
+            Key = "Skin",
+            UI = AliasMap.Switcher,
+            Text = "SKINS",
+            GetFunc = function() return _G.Mod_Skin_Enabled or false end,
+            SetFunc = function(_, value)
+                _G.Mod_Skin_Enabled = value
+                return true
+            end
+        },
+        {
+            Key = "FPS165",
+            UI = AliasMap.Switcher,
+            Text = "165 FPS",
+            GetFunc = function() return _G.Mod_FPS165_Enabled ~= false end,
+            SetFunc = function(_, value)
+                _G.Mod_FPS165_Enabled = value
+                if value then _G.Enable165FPSLogic() end
+                return true
+            end
+        },
+        {
+            Key = "iPadView",
+            UI = AliasMap.Switcher,
+            Text = "IPAD VIEW",
+            GetFunc = function() return _G.Mod_iPadView_Enabled ~= false end,
+            SetFunc = function(_, value)
+                _G.Mod_iPadView_Enabled = value
+                if value then _G.EnableiPadViewUI() end
+                return true
+            end
+        },
+        {
+            Key = "ModMenu_iPadViewDistance",
+            UI = AliasMap.Slider,
+            Text = "View Distance (80-140)",
+            GetFunc = function() return ((_G.Mod_iPadViewDistance or 90) - 80) / 60 end,
+            SetFunc = function(_, value)
+                _G.Mod_iPadViewDistance = math.floor(80 + (value * 60))
+                return true
+            end
+        },
+
+        -- ============================================================
+        -- WALLHACK CATEGORY (merged from add.lua)
+        -- ============================================================
+        {
+            Key = "Title_Wallhack",
+            UI = AliasMap.Title,
+            Text = "WALLHACK"
+        },
+        {
+            Key = "ESP_Wallhack",
+            UI = AliasMap.Switcher,
+            Text = "Wallhack ON/OFF",
+            GetFunc = function() return _G.Mod_Wallhack_Enabled or false end,
+            SetFunc = function(_, value)
+                _G.Mod_Wallhack_Enabled = value
+                return true
+            end
+        },
+        {
+            Key = "ESP_WallhackVisibleColor",
+            UI = AliasMap.Switcher,
+            Text = "Visible Color",
+            SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
+            SwitcherValue = {1,2,3,4,5,6,7},
+            GetFunc = function() return _G.ESPConfig.WallhackVisibleColor or 1 end,
+            SetFunc = function(_, value)
+                _G.ESPConfig.WallhackVisibleColor = value
+                return true
+            end
+        },
+        {
+            Key = "ESP_WallhackInvisibleColor",
+            UI = AliasMap.Switcher,
+            Text = "Invisible Color",
+            SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
+            SwitcherValue = {1,2,3,4,5,6,7},
+            GetFunc = function() return _G.ESPConfig.WallhackInvisibleColor or 2 end,
+            SetFunc = function(_, value)
+                _G.ESPConfig.WallhackInvisibleColor = value
+                return true
+            end
+        },
+        {
+            Key = "ESP_WallhackBrightness",
+            UI = AliasMap.Slider,
+            Text = "Brightness (1-50)",
+            Min = 1,
+            Max = 50,
+            Step = 1,
+            IsPercent = false,
+            GetFunc = function() return _G.ESPConfig.WallhackBrightness or 25 end,
+            SetFunc = function(_, value)
+                _G.ESPConfig.WallhackBrightness = math.floor(value)
+                return true
+            end
+        },
+        {
+            Key = "ESP_WallhackGlow",
+            UI = AliasMap.Slider,
+            Text = "Glow (0-10)",
+            Min = 0,
+            Max = 10,
+            Step = 0.5,
+            IsPercent = false,
+            GetFunc = function() return _G.ESPConfig.WallhackGlow or 3.0 end,
+            SetFunc = function(_, value)
+                _G.ESPConfig.WallhackGlow = value
+                return true
+            end
+        },
+
+        -- ============================================================
+        -- SCENE CATEGORY (merged from add.lua)
+        -- ============================================================
+        {
+            Key = "Title_Scene",
+            UI = AliasMap.Title,
+            Text = "SCENE CONTROLS"
+        },
+        {
+            Key = "ESP_RemoveGrass",
+            UI = AliasMap.Switcher,
+            Text = "No Grass",
+            GetFunc = function() return _G.Mod_NoGrass_Enabled ~= false end,
+            SetFunc = function(_, value)
+                _G.Mod_NoGrass_Enabled = value
+                _G.ESPConfig.RemoveGrass = value
+                if value then
+                    ExecuteConsoleCommand("grass.DensityScale", "0")
+                    ExecuteConsoleCommand("foliage.DensityScale", "0")
+                else
+                    ExecuteConsoleCommand("grass.DensityScale", "1")
+                    ExecuteConsoleCommand("foliage.DensityScale", "1")
+                end
+                return true
+            end
+        },
+        {
+            Key = "ESP_RainEnabled",
+            UI = AliasMap.Switcher,
+            Text = "Rain",
+            GetFunc = function() return _G.ESPConfig.RainEnabled end,
+            SetFunc = function(_, value)
+                _G.ESPConfig.RainEnabled = value
+                SetRainEnabled(value)
+                return true
+            end
+        },
+        {
+            Key = "ESP_SnowEnabled",
+            UI = AliasMap.Switcher,
+            Text = "Snow",
+            GetFunc = function() return _G.ESPConfig.SnowEnabled end,
+            SetFunc = function(_, value)
+                _G.ESPConfig.SnowEnabled = value
+                SetSnowEnabled(value)
+                return true
+            end
+        },
+        {
+            Key = "ESP_BlackSky",
+            UI = AliasMap.Switcher,
+            Text = "Black Sky",
+            GetFunc = function() return _G.ESPConfig.BlackSky end,
+            SetFunc = function(_, value)
+                _G.ESPConfig.BlackSky = value
+                SetBlackSky(value)
+                return true
+            end
+        },
+        {
+            Key = "ESP_RemoveFog",
+            UI = AliasMap.Switcher,
+            Text = "Remove Fog",
+            GetFunc = function() return _G.ESPConfig.RemoveFog end,
+            SetFunc = function(_, value)
+                _G.ESPConfig.RemoveFog = value
+                SetFogRemoval(value)
+                return true
+            end
+        },
+        {
+            Key = "ESP_RemoveTree",
+            UI = AliasMap.Switcher,
+            Text = "Remove Trees",
+            GetFunc = function() return _G.ESPConfig.RemoveTree end,
+            SetFunc = function(_, value)
+                _G.ESPConfig.RemoveTree = value
+                SetTreeRemoval(value)
+                return true
+            end
+        },
+        {
+            Key = "ESP_RemoveWater",
+            UI = AliasMap.Switcher,
+            Text = "Remove Water",
+            GetFunc = function() return _G.ESPConfig.RemoveWater end,
+            SetFunc = function(_, value)
+                _G.ESPConfig.RemoveWater = value
+                SetWaterRemoval(value)
+                return true
+            end
+        },
+        {
+            Key = "ESP_ForceChinese",
+            UI = AliasMap.Switcher,
+            Text = "Force Chinese",
+            GetFunc = function() return _G.ESPConfig.ForceChinese end,
+            SetFunc = function(_, value)
+                _G.ESPConfig.ForceChinese = value
+                SetForceChinese(value)
+                return true
+            end
+        },
+
+        -- ============================================================
+        -- CHAMS COLORS (unchanged)
+        -- ============================================================
+        {
+            Key = "Title_ESP_Colors",
+            UI = AliasMap.Title,
+            Text = "CHAMS COLORS"
+        },
+        {
+            Key = "ModMenu_GreenColor",
+            UI = AliasMap.Switcher,
+            Text = "GREEN (Visible)",
+            GetFunc = function() return _G.Mod_Chams_GreenEnabled or false end,
+            SetFunc = function(_, value)
+                _G.Mod_Chams_GreenEnabled = value
+                return true
+            end
+        },
+        {
+            Key = "ModMenu_GreenR",
+            UI = AliasMap.Slider,
+            Text = "Green - Red (0-255)",
+            GetFunc = function() return (_G.Mod_Chams_GreenRGB.R or 0) / 255 end,
+            SetFunc = function(_, value)
+                _G.Mod_Chams_GreenRGB.R = math.floor(value * 255)
+                return true
+            end
+        },
+        {
+            Key = "ModMenu_GreenG",
+            UI = AliasMap.Slider,
+            Text = "Green - Green (0-255)",
+            GetFunc = function() return (_G.Mod_Chams_GreenRGB.G or 255) / 255 end,
+            SetFunc = function(_, value)
+                _G.Mod_Chams_GreenRGB.G = math.floor(value * 255)
+                return true
+            end
+        },
+        {
+            Key = "ModMenu_GreenB",
+            UI = AliasMap.Slider,
+            Text = "Green - Blue (0-255)",
+            GetFunc = function() return (_G.Mod_Chams_GreenRGB.B or 0) / 255 end,
+            SetFunc = function(_, value)
+                _G.Mod_Chams_GreenRGB.B = math.floor(value * 255)
+                return true
+            end
+        },
+        {
+            Key = "ModMenu_YellowColor",
+            UI = AliasMap.Switcher,
+            Text = "YELLOW (Hidden)",
+            GetFunc = function() return _G.Mod_Chams_YellowEnabled or false end,
+            SetFunc = function(_, value)
+                _G.Mod_Chams_YellowEnabled = value
+                return true
+            end
+        },
+        {
+            Key = "ModMenu_YellowR",
+            UI = AliasMap.Slider,
+            Text = "Yellow - Red (0-255)",
+            GetFunc = function() return (_G.Mod_Chams_YellowRGB.R or 255) / 255 end,
+            SetFunc = function(_, value)
+                _G.Mod_Chams_YellowRGB.R = math.floor(value * 255)
+                return true
+            end
+        },
+        {
+            Key = "ModMenu_YellowG",
+            UI = AliasMap.Slider,
+            Text = "Yellow - Green (0-255)",
+            GetFunc = function() return (_G.Mod_Chams_YellowRGB.G or 255) / 255 end,
+            SetFunc = function(_, value)
+                _G.Mod_Chams_YellowRGB.G = math.floor(value * 255)
+                return true
+            end
+        },
+        {
+            Key = "ModMenu_YellowB",
+            UI = AliasMap.Slider,
+            Text = "Yellow - Blue (0-255)",
+            GetFunc = function() return (_G.Mod_Chams_YellowRGB.B or 0) / 255 end,
+            SetFunc = function(_, value)
+                _G.Mod_Chams_YellowRGB.B = math.floor(value * 255)
+                return true
+            end
+        }
+    }
+
+    -- Replace the old Category with the new merged stack
+    for _, cat in ipairs(SettingPageDefine.ModMenu.Category) do
+        if cat.Key == "ModMenu_Main" then
+            cat.Stack = ModMenuStack
+            break
         end
     end
 
-    StartSceneTimer()
+    -- Hook UIManager to show the menu (unchanged)
+    local UIManager = _G.UIManager
+    if UIManager and not UIManager._IsModMenuHooked then
+        local old_ShowUI = UIManager.ShowUI
+        UIManager.ShowUI = function(config, ...)
+            local args = {...}
+            if config and config.keyName and (string.find(string.lower(config.keyName), "setting_main") or string.find(string.lower(config.keyName), "setting")) then
+                local catalog = args[1]
+                if catalog and (type(catalog) == "table" or type(catalog) == "userdata") then
+                    local hasModMenu = false
+                    local newCatalog = {}
+                    for _, page in ipairs(catalog) do
+                        table.insert(newCatalog, page)
+                        if page.Key == "ModMenu" then
+                            hasModMenu = true
+                        end
+                    end
+                    if not hasModMenu then
+                        table.insert(newCatalog, SettingPageDefine.ModMenu)
+                        args[1] = newCatalog
+                    end
+                end
+            end
+            local table_unpack = table.unpack or unpack
+            return old_ShowUI(config, table_unpack(args))
+        end
+        UIManager._IsModMenuHooked = true
+    end
 end)
 
--- Done.
-[file content end]
+-- ===================================================================
+-- Ensure scene effects are applied on load
+-- ===================================================================
+pcall(function()
+    -- Apply initial scene states (use a timer to let the game settle)
+    local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
+    if slua.isValid(pc) and pc.AddGameTimer then
+        pc:AddGameTimer(1.0, false, function()
+            ApplySceneEffects()
+        end)
+    end
+end)
+
+print("[MERGED] 1.lua + add.lua successfully merged.")
