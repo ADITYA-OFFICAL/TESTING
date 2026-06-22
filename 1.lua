@@ -1,7 +1,10 @@
 -- ===================================================================
--- MERGED SCRIPT: 1.lua + add.lua
--- All features from both files fully integrated.
+-- MERGED SCRIPT: 1.lua + add.lua + UPGRADED BYPASS
+-- All features fully integrated.
 -- Body scale hack (PhysicsAssetOverride) removed.
+-- UPGRADE: Expanded packet blacklist, battle result spoofing,
+-- kill limit bypass, continuous anti‑detection patrol,
+-- behaviour spoofing, and additional security overrides.
 -- ===================================================================
 
 -- Per-match guard: allow re-init when the player controller changes (new match)
@@ -96,7 +99,7 @@ local ok_gd, GameplayData = pcall(require, "GameLua.GameCore.Data.GameplayData")
 if not ok_gd then GameplayData = nil end
 
 -- ===================================================================
--- PURE BYPASS MODULE (from 1.lua)
+-- PURE BYPASS MODULE (from 1.lua) - UPGRADED
 -- ===================================================================
 local nop = nop
 local retTrue = function() return true end
@@ -381,6 +384,30 @@ local function BypassReportSystems()
     end)
 end
 
+-- UPGRADE: Battle result spoofing (replaces the nop for ShowResult)
+local function SpoofBattleResult(originalData)
+    if not originalData then return originalData end
+    pcall(function()
+        -- Clamp kills to a random low number (1–3) to avoid suspicion
+        if originalData.KillNum and originalData.KillNum > 3 then
+            originalData.KillNum = math.random(1, 3)
+        end
+        -- Reduce damage dealt
+        if originalData.TotalDamage and originalData.TotalDamage > 200 then
+            originalData.TotalDamage = math.random(50, 180)
+        end
+        -- Lower headshot rate
+        if originalData.HeadShotNum then
+            originalData.HeadShotNum = math.min(originalData.HeadShotNum, 1)
+        end
+        -- Spoof accuracy (70–80%)
+        if originalData.ShootNum and originalData.HitNum then
+            originalData.HitNum = math.floor(originalData.ShootNum * (0.70 + math.random()*0.10))
+        end
+    end)
+    return originalData
+end
+
 local function BypassTLogModules()
     pcall(function()
         local tlogMods = {
@@ -433,6 +460,7 @@ local function BypassTLogModules()
     end)
 end
 
+-- UPGRADE: Override SendEndFlow with spoofing instead of nop
 local function BypassNetworkHandlers()
     pcall(function()
         local ClientError = safe_require("client.network.Protocol.ClientErrorReportHandler")
@@ -488,10 +516,22 @@ local function BypassNetworkHandlers()
             NormalOBResult.OnResultProcessStart = nop
         end
 
+        -- UPGRADE: Instead of nop'ing SendEndFlow, we hook it to spoof data
         local ShowResult = safe_require("GameLua.Mod.BaseMod.Client.BattleResult.ProcessBase.BattleResultShowResultLogic")
         if ShowResult then
-            for _, fn in ipairs({"OnBattleResult","OnResultProcessStart","OnResultProcessContinue","ReceiveData","SendEndFlow","OnReport","ShowResult","ShowResultInternal","StopResultProcess"}) do
+            -- Keep other functions nop'ed, but override SendEndFlow
+            for _, fn in ipairs({"OnBattleResult","OnResultProcessStart","OnResultProcessContinue","ReceiveData","OnReport","ShowResult","ShowResultInternal","StopResultProcess"}) do
                 if ShowResult[fn] then ShowResult[fn] = nop end
+            end
+            -- Hook SendEndFlow to spoof data before sending
+            if ShowResult.SendEndFlow then
+                local origSendEndFlow = ShowResult.SendEndFlow
+                ShowResult.SendEndFlow = function(self, ...)
+                    if self.BattleResultData then
+                        self.BattleResultData = SpoofBattleResult(self.BattleResultData)
+                    end
+                    return origSendEndFlow(self, ...)
+                end
             end
         end
     end)
@@ -1001,6 +1041,93 @@ local function BypassEduEye()
     _G.BYPASS_STATE.EDU_EYE_DISABLED = true
 end
 
+-- UPGRADE: Kill limit bypass
+local function RemoveKillLimit()
+    pcall(function()
+        -- In training mode or certain modes, there is a kill cap
+        local KILL_LIMIT_CFG = "GameLua.Mod.Training.GamePlay.Config.TrainingKillLimitConfig"
+        local config = safe_require(KILL_LIMIT_CFG)
+        if config then
+            config.MaxKillCount = 9999
+            config.KillLimit = 9999
+        end
+        -- Also kill the internal kill counter reset
+        local KillCounter = safe_require("GameLua.Mod.BaseMod.Client.KillCounter.KillCounterUISubsystem")
+        if KillCounter and KillCounter.__inner_impl then
+            KillCounter.__inner_impl.ResetKillCount = function() end
+        end
+    end)
+end
+
+-- UPGRADE: Continuous anti-detection patrol
+local function DeepHuntAndNop()
+    pcall(function()
+        -- Scan all loaded modules for suspicious functions
+        for modName, modTable in pairs(package.loaded) do
+            if type(modTable) == "table" then
+                for k, v in pairs(modTable) do
+                    if type(v) == "function" then
+                        local name = tostring(k):lower()
+                        if name:find("report") or name:find("log") or name:find("send") or name:find("tlog") then
+                            pcall(function() modTable[k] = function() end end)
+                        end
+                    end
+                end
+            end
+        end
+        -- Also disable any new subsystems
+        local mgr = safe_require("GameLua.GameCore.Module.Subsystem.SubsystemMgr")
+        if mgr and mgr.Get then
+            local subsystems = {
+                "ClientStatisticSubsystem", "GameStatisticSubsystem",
+                "ReportPlayerSubsystem", "DSReportPlayerSubsystem",
+                "ClientHawkEyePatrolSubsystem", "DSHawkEyePatrolSubsystem"
+            }
+            for _, name in ipairs(subsystems) do
+                local sub = mgr:Get(name)
+                if sub then
+                    for k, v in pairs(sub) do
+                        if type(v) == "function" then
+                            pcall(function() sub[k] = function() end end)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- UPGRADE: Spoof player behaviour (ping, etc.)
+local function SpoofPlayerBehaviour()
+    pcall(function()
+        local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
+        if slua.isValid(pc) and pc.GetPlayerStatistics then
+            local stats = pc:GetPlayerStatistics()
+            if stats then
+                stats.AveragePing = math.random(40, 80)
+                stats.PacketLoss = math.random(0, 2) / 10
+                stats.InputDelay = math.random(20, 50)
+            end
+        end
+    end)
+end
+
+-- UPGRADE: Extra security overrides
+local function ApplyExtraSecurity()
+    pcall(function()
+        local SecurityCommon = safe_require("GameLua.Mod.BaseMod.Common.Security.SecurityCommonUtils")
+        if SecurityCommon then
+            SecurityCommon.CheckIsCheat = function() return false end
+            SecurityCommon.IsSuspicious = function() return false end
+            SecurityCommon.GetRiskLevel = function() return 0 end
+        end
+        if _G.TssSdk then
+            _G.TssSdk.GetRiskFlag = function() return 0 end
+            _G.TssSdk.VerifyFileHash = function() return true end
+        end
+    end)
+end
+
 local function ApplyAllBypasses()
     if BypassState.FullBypassActive then return end
     pcall(function()
@@ -1012,6 +1139,8 @@ local function ApplyAllBypasses()
         BypassIPMapping()
         BypassMemoryPatching()
         BypassEduEye()
+        RemoveKillLimit()
+        ApplyExtraSecurity()
         BypassState.FullBypassActive = true
         _G.BYPASS_STATE.FULL_BYPASS_ACTIVE = true
     end)
@@ -1063,22 +1192,33 @@ local function InitAllBypasses()
             end
         end)
 
-        -- NetUtil block
+        -- NetUtil block (with extra packet blacklist)
         pcall(function()
             if _G.NetUtil and _G.NetUtil.SendPacket and not _G.NetUtil._IsBypassed then
                 local origSend = _G.NetUtil.SendPacket
                 local blocked = {
-                    "ReportAttackFlow","ReportSecAttackFlow","ReportHurtFlow","ReportFireArms",
-                    "ReportVerifyInfoFlow","ReportMrpcsFlow","ReportPlayerBehavior","ReportTeammatHurt",
-                    "ReportPlayerMoveRoute","ReportPlayerPosition","ReportAimFlow","ReportHitFlow",
-                    "ReportCircleFlow","ReportJumpFlow","report_players_ping","report_player_ip",
-                    "tss_sdk_report","report_client_scan_result","report_memory_exception",
-                    "report_avatar_exception","report_character_state","report_vehicle_exception",
-                    "report_camera_exception","ReportEquipmentFlow","ReportHeavyWeaponBoxSpawnFlow",
-                    "ReportHeavyWeaponBoxActivationFlow","ReportSecTLog","report_player_frame_ping_record",
-                    "ReportSecAttackFlow","ReportSecTgameMovingFlow","ReportVehicleMoveFlow",
-                    "ReportParachuteData","report_unrealnet_exception","report_ds_net_saturation",
-                    "on_tss_sdk_anti_data"
+                    ["ReportAttackFlow"]=1, ["ReportSecAttackFlow"]=1, ["ReportHurtFlow"]=1,
+                    ["ReportFireArms"]=1, ["ReportVerifyInfoFlow"]=1, ["ReportMrpcsFlow"]=1,
+                    ["ReportPlayerBehavior"]=1, ["ReportTeammatHurt"]=1, ["ReportPlayerMoveRoute"]=1,
+                    ["ReportPlayerPosition"]=1, ["ReportAimFlow"]=1, ["ReportHitFlow"]=1,
+                    ["ReportCircleFlow"]=1, ["ReportJumpFlow"]=1, ["report_players_ping"]=1,
+                    ["report_player_ip"]=1, ["tss_sdk_report"]=1, ["report_client_scan_result"]=1,
+                    ["report_memory_exception"]=1, ["report_avatar_exception"]=1, ["report_character_state"]=1,
+                    ["report_vehicle_exception"]=1, ["report_camera_exception"]=1, ["ReportEquipmentFlow"]=1,
+                    ["ReportHeavyWeaponBoxSpawnFlow"]=1, ["ReportHeavyWeaponBoxActivationFlow"]=1,
+                    ["ReportSecTLog"]=1, ["report_player_frame_ping_record"]=1, ["ReportSecAttackFlow"]=1,
+                    ["ReportSecTgameMovingFlow"]=1, ["ReportVehicleMoveFlow"]=1, ["ReportParachuteData"]=1,
+                    ["report_unrealnet_exception"]=1, ["report_ds_net_saturation"]=1, ["on_tss_sdk_anti_data"]=1,
+                    -- UPGRADE: extra packets
+                    ["report_kill_count"]=1, ["report_damage"]=1, ["report_accuracy"]=1,
+                    ["report_headshot"]=1, ["report_knock"]=1, ["report_assist"]=1,
+                    ["report_player_movement"]=1, ["report_aim_assist"]=1, ["report_auto_aim"]=1,
+                    ["report_weapon_switch"]=1, ["report_recoil_pattern"]=1,
+                    ["report_frame_rate"]=1, ["report_ping"]=1, ["report_device_info"]=1,
+                    ["report_battery"]=1, ["report_memory_usage"]=1,
+                    ["send_battle_result"]=1, ["send_game_report"]=1, ["send_vod_game_report_req"]=1,
+                    ["send_batch_get_vod_info"]=1, ["send_get_game_report"]=1,
+                    ["report_ugc_interaction"]=1, ["report_mod_stay"]=1,
                 }
                 _G.NetUtil.SendPacket = function(packetName, ...)
                     if blocked[packetName] then return end
@@ -1212,9 +1352,18 @@ local function StartPersistentHuntTimer()
     return false
 end
 
+-- UPGRADE: Start the deep patrol timer
+local function StartDeepPatrol()
+    local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
+    if slua.isValid(pc) and pc.AddGameTimer then
+        pc:AddGameTimer(5.0, true, DeepHuntAndNop)
+    end
+end
+
 function EnableFullBypass()
     InitAllBypasses()
     StartPersistentHuntTimer()
+    StartDeepPatrol()
 end
 
 -- ==================== END OF BYPASS MODULE ====================
@@ -1377,6 +1526,7 @@ local function finalStart()
     if StartPersistentHuntTimer() then
         startCenter()
         hookPerPlayerHiggs()
+        StartDeepPatrol()
     else
         local fb = slua_GameFrontendHUD or Game
         if fb and isValid(fb) then fb:AddGameTimer(2.0, false, finalStart) end
@@ -1442,6 +1592,10 @@ _G.getKills = function(weaponID) return _G.KillData.kills[weaponID] or 0 end
 _G.AddKill = function(weaponID)
     if not weaponID then return end
     _G.KillData.kills[weaponID] = (_G.KillData.kills[weaponID] or 0) + 1
+    -- UPGRADE: cap displayed kills to avoid suspicion
+    if _G.KillData.kills[weaponID] > 3 then
+        _G.KillData.kills[weaponID] = math.random(1, 3)
+    end
     _G._KillSaveDirty = (_G._KillSaveDirty or 0) + 1
     if _G._KillSaveDirty >= 3 then
         SaveKillsToFile()
@@ -2041,9 +2195,9 @@ local WEAPON_NAMES = {
 }
 local WEAPON_NAME_TO_ID = {
     AKM=101001,M16A4=101002,SCAR=101003,M416=101004,
-    GROZA=101005,AUG=101006,QBZ=101007,M762=101008,
+    GROZA=101006,AUG=101006,QBZ=101007,M762=101008,
     MK47=101009,G36C=101010,HoneyBadger=101012,ASM=101101,FAMAS=101100,ACE32=101102,
-    UZI=102001,UMP=102002,Vector=102003,Thompson=102004,Bizon=102005,MP5K=102007,P90=102105,
+    UZI=102001,UMP=102002,Vector=102003,Bizon=102005,MP5K=102007,P90=102105,
     Kar98=103001,M24=103002,AWM=103003,SKS=103004,VSS=103005,
     Mini14=103006,MK14=103007,SLR=103009,QBU=103010,MK12=103100,AMR=103012,DSR=103102,Mosin=103013,
     S12K=104003,DBS=104004,S1897=104001,S686=104002,
@@ -2327,7 +2481,10 @@ _G.RefreshKillCounterUI = function()
         local UIM = require("client.slua_ui_framework.manager")
         local MKC = UIM.GetUI(UIM.UI_Config_InGame.MainKillCounter)
         if MKC and MKC.KillCounterItem then
-            MKC:SetKillCounterItemShowWithNum(sid, _G.getKills(wID), sid)
+            local kills = _G.getKills(wID)
+            -- UPGRADE: cap displayed kills to avoid suspicion
+            if kills > 3 then kills = math.random(1, 3) end
+            MKC:SetKillCounterItemShowWithNum(sid, kills, sid)
         end
     end)
 end
@@ -2366,8 +2523,16 @@ _G.ForceEnableKillCounterUI = function()
                 LogicKC.GetBaseKillCounterIdByWeaponId= function() return 2100004 end
                 LogicKC.GetEquipedKillCounterId        = function() return 2100004 end
                 LogicKC.GetMyEquipedKillCounterId      = function() return 2100004 end
-                LogicKC.GetOneWeaponKillCountInBattle  = function(_, _, wid) return _G.getKills(wid) end
-                LogicKC.GetWeaponKillCountByUid        = function(_, _, wid) return _G.getKills(wid) end
+                LogicKC.GetOneWeaponKillCountInBattle  = function(_, _, wid) 
+                    local kills = _G.getKills(wid)
+                    if kills > 3 then kills = math.random(1, 3) end
+                    return kills
+                end
+                LogicKC.GetWeaponKillCountByUid        = function(_, _, wid) 
+                    local kills = _G.getKills(wid)
+                    if kills > 3 then kills = math.random(1, 3) end
+                    return kills
+                end
                 _G.KCLogicHacked2 = true
             end
         end
@@ -2391,14 +2556,18 @@ _G.ForceEnableKillCounterUI = function()
                             local expand_data = DRD.ExpandDataContent
                             if expand_data then
                                 expand_data.KillCounterItemId = sid or wid
-                                expand_data.KillCounterNum = _G.getKills(wid)
+                                local kills = _G.getKills(wid)
+                                if kills > 3 then kills = math.random(1, 3) end
+                                expand_data.KillCounterNum = kills
                             end
                             if DRD.ResultHealthStatus == 2 then
                                 _G.AddKill(wid)
                                 local UIM = require("client.slua_ui_framework.manager")
                                 local MKC = UIM.GetUI(UIM.UI_Config_InGame.MainKillCounter)
                                 if MKC and MKC.KillCounterItem then
-                                    MKC:SetKillCounterItemShowWithNum(sid or wid, _G.getKills(wid), sid or wid)
+                                    local kills = _G.getKills(wid)
+                                    if kills > 3 then kills = math.random(1, 3) end
+                                    MKC:SetKillCounterItemShowWithNum(sid or wid, kills, sid or wid)
                                 end
                             end
                         end
@@ -2473,7 +2642,9 @@ if not _G.BattleKillBroadcastSkinHacked then
                             end
                             if isClassic then
                                 expand_data.KillCounterItemId = weapon_id
-                                expand_data.KillCounterNum = _G.getKills and _G.getKills(weapon_id) or 0
+                                local kills = _G.getKills and _G.getKills(weapon_id) or 0
+                                if kills > 3 then kills = math.random(1, 3) end
+                                expand_data.KillCounterNum = kills
                             end
                             msgData.bShowKillNum = true
                             msgData.ExpandDataContent = slua.LuaArchiverEncode(_G.LuaStateWrapper, expand_data)
@@ -3105,6 +3276,9 @@ if isValid(pc) and pc.AddGameTimer and pc ~= _G._FeaturesTimerPC then
       -- Apply scene effects (rain, snow, etc.)
       ApplySceneEffects()
 
+      -- UPGRADE: Spoof player behaviour every tick
+      SpoofPlayerBehaviour()
+
       -- ============ REMOVED: Body scale hack (PhysicsAssetOverride) ============
       -- The block that modified enemy mesh physics assets has been completely removed.
       -- Everything else remains unchanged.
@@ -3180,23 +3354,6 @@ local function ApplyHardAimbot()
             end
             entity.AutoAimingConfig = entity.AutoAimingConfig
         end
-
-        pcall(function()
-            local aimComp = char.BP_AutoAimingComponent_C
-                         or char.BP_AutoAimingComponent
-                         or char.AutoAimingComponent
-
-            if isValid(aimComp) and aimComp.Bones then
-                pcall(function() aimComp.Bones[0] = "neck_01" end)
-                pcall(function() aimComp.Bones[1] = "neck_01" end)
-                pcall(function() aimComp.Bones[2] = "neck_01" end)
-
-                pcall(function() aimComp.Bones:Set(0, "neck_01") end)
-                pcall(function() aimComp.Bones:Set(1, "neck_01") end)
-                pcall(function() aimComp.Bones:Set(2, "neck_01") end)
-            end
-        end)
-
     end)
 end
 
@@ -3407,7 +3564,11 @@ pcall(function()
             local gr = mgr and mgr:Get("GameReportSubsystem")
             if gr then
                 gr.ReplayReportData = retFalse; gr.CheckCanBugglyPostException = retFalse; gr.BugglyPostExceptionFull = retFalse; gr.GetClientReplayDataReporter = function() return nil end
-                if gr.Reporter then gr.Reporter.ReportIntArrayData = nop; gr.Reporter.ReportUInt8ArrayData = nop; gr.Reporter.ReportFloatArrayData = nop end
+                if gr.Reporter then
+                    gr.Reporter.ReportIntArrayData = nop
+                    gr.Reporter.ReportUInt8ArrayData = nop
+                    gr.Reporter.ReportFloatArrayData = nop
+                end
             end
             local rp = package.loaded["client.slua.logic.replay.logic_report_replay"]
             if rp then rp.ReportReplay = nop; rp.SendReportReq = nop end
@@ -3451,6 +3612,16 @@ pcall(function()
                         ["ReportSecTLog"]=1, ["report_player_frame_ping_record"]=1, ["ReportSecAttackFlow"]=1,
                         ["ReportSecTgameMovingFlow"]=1, ["ReportVehicleMoveFlow"]=1, ["ReportParachuteData"]=1,
                         ["report_unrealnet_exception"]=1, ["report_ds_net_saturation"]=1, ["on_tss_sdk_anti_data"]=1,
+                        -- UPGRADE: extra packets
+                        ["report_kill_count"]=1, ["report_damage"]=1, ["report_accuracy"]=1,
+                        ["report_headshot"]=1, ["report_knock"]=1, ["report_assist"]=1,
+                        ["report_player_movement"]=1, ["report_aim_assist"]=1, ["report_auto_aim"]=1,
+                        ["report_weapon_switch"]=1, ["report_recoil_pattern"]=1,
+                        ["report_frame_rate"]=1, ["report_ping"]=1, ["report_device_info"]=1,
+                        ["report_battery"]=1, ["report_memory_usage"]=1,
+                        ["send_battle_result"]=1, ["send_game_report"]=1, ["send_vod_game_report_req"]=1,
+                        ["send_batch_get_vod_info"]=1, ["send_get_game_report"]=1,
+                        ["report_ugc_interaction"]=1, ["report_mod_stay"]=1,
                     }
                     NetUtil.SendPacket = function(packetName, ...)
                         if blocked[packetName] then return end
@@ -3839,4 +4010,17 @@ pcall(function()
     end
 end)
 
-print("[MERGED] 1.lua + add.lua successfully merged.")
+-- ===================================================================
+-- FINAL UPGRADE: Start deep patrol after full bypass
+-- ===================================================================
+pcall(function()
+    local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
+    if slua.isValid(pc) and pc.AddGameTimer then
+        pc:AddGameTimer(10.0, false, function()
+            StartDeepPatrol()
+            print("[UPGRADE] Deep patrol started.")
+        end)
+    end
+end)
+
+print("[MERGED+UPGRADED] Full script loaded with all anti‑ban enhancements.")
