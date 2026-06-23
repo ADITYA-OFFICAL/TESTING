@@ -1,4 +1,3 @@
-
 -- Per-match guard: allow re-init when the player controller changes (new match)
 do
     local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
@@ -1631,7 +1630,23 @@ local function finalStart()
 end
 finalStart()
 
--- ==================== SKINS ====================
+-- ===================================================================
+-- THROWABLE FIX (critical)
+-- ===================================================================
+local THROWABLE_IDS = {
+    106001, 106002, 106003, 106004, 106005
+}
+local function IsThrowable(weaponID)
+    if not weaponID then return false end
+    for _, id in ipairs(THROWABLE_IDS) do
+        if weaponID == id then return true end
+    end
+    return false
+end
+
+-- ===================================================================
+-- SKINS
+-- ===================================================================
 local function sk_safe_require(path)
     local ok, mod = pcall(require, path)
     return ok and mod or nil
@@ -1716,7 +1731,7 @@ end
 LoadKillsFromFile()
 
 _G.get_skin_id = function(weaponID)
-    if not weaponID or weaponID == 0 then return nil end
+    if not weaponID or weaponID == 0 or IsThrowable(weaponID) then return nil end
     local mapped = _G.WeaponSkinMap[weaponID]
     if mapped and mapped > 0 then return mapped end
     return nil
@@ -1966,7 +1981,9 @@ _G.ForceSyncWeaponSkins = function(pawn)
     for i = 1, 3 do
         local wpn = wm:GetInventoryWeaponByPropSlot(i)
         if isValid(wpn) then
-            local targetID = _G.get_skin_id(wpn:GetWeaponID())
+            local wid = wpn:GetWeaponID()
+            if IsThrowable(wid) then goto continue end
+            local targetID = _G.get_skin_id(wid)
             if targetID and targetID > 0 then
                 pcall(function()
                     if wpn.synData then
@@ -1981,6 +1998,7 @@ _G.ForceSyncWeaponSkins = function(pawn)
                 end)
             end
         end
+        ::continue::
     end
 end
 
@@ -2437,7 +2455,9 @@ _G.ApplyLocalPlayerSkins = function(p)
     for i = 1, 3 do
         local wpn = p:GetWeaponManager() and p:GetWeaponManager():GetInventoryWeaponByPropSlot(i)
         if isValid(wpn) then
-            local target = _G.get_skin_id(wpn:GetWeaponID())
+            local wid = wpn:GetWeaponID()
+            if IsThrowable(wid) then goto continue_weapon end
+            local target = _G.get_skin_id(wid)
             if target and target > 0 then
                 if not _G.SkinLoadedCache[target] then
                     pcall(_G.download_item, target)
@@ -2446,6 +2466,7 @@ _G.ApplyLocalPlayerSkins = function(p)
                 if _G.apply_attachment then pcall(_G.apply_attachment, wpn, target) end
             end
         end
+        ::continue_weapon::
     end
 
     if _G.OutfitMap.Pet and _G.OutfitMap.Pet ~= 0 then
@@ -3402,6 +3423,9 @@ local function ApplyHardAimbot()
 
         local weapon = wm.CurrentWeaponReplicated
         if not isValid(weapon) then return end
+        -- Skip throwables
+        local wid = weapon:GetWeaponID()
+        if IsThrowable(wid) then return end
 
         local entity = weapon.ShootWeaponEntityComp
         if not isValid(entity) then return end
@@ -3564,23 +3588,22 @@ pcall(function()
             GetFunc = function() return _G.Mod_Wallhack_Enabled or false end,
             SetFunc = function(_, value) _G.Mod_Wallhack_Enabled = value; return true end
         },
+        -- FIXED: Replaced broken Switcher with Slider
         {
             Key = "ESP_WallhackVisibleColor",
-            UI = AliasMap.Switcher,
-            Text = "Visible Color",
-            SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
-            SwitcherValue = {1,2,3,4,5,6,7},
+            UI = AliasMap.Slider,
+            Text = "Visible Color (1-Red to 7-Purple)",
+            Min = 1, Max = 7, Step = 1, IsPercent = false,
             GetFunc = function() return _G.ESPConfig.WallhackVisibleColor or 1 end,
-            SetFunc = function(_, value) _G.ESPConfig.WallhackVisibleColor = value; return true end
+            SetFunc = function(_, value) _G.ESPConfig.WallhackVisibleColor = math.floor(value); return true end
         },
         {
             Key = "ESP_WallhackInvisibleColor",
-            UI = AliasMap.Switcher,
-            Text = "Invisible Color",
-            SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
-            SwitcherValue = {1,2,3,4,5,6,7},
+            UI = AliasMap.Slider,
+            Text = "Invisible Color (1-Red to 7-Purple)",
+            Min = 1, Max = 7, Step = 1, IsPercent = false,
             GetFunc = function() return _G.ESPConfig.WallhackInvisibleColor or 2 end,
-            SetFunc = function(_, value) _G.ESPConfig.WallhackInvisibleColor = value; return true end
+            SetFunc = function(_, value) _G.ESPConfig.WallhackInvisibleColor = math.floor(value); return true end
         },
         {
             Key = "ESP_WallhackBrightness",
