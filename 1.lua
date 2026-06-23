@@ -33,7 +33,6 @@ if _G.Mod_NoGrass_Enabled == nil then _G.Mod_NoGrass_Enabled = true end
 if _G.Mod_iPadView_Enabled == nil then _G.Mod_iPadView_Enabled = false end
 
 -- Slider values for fine-tuning
-if _G.Mod_AimbotStrength == nil then _G.Mod_AimbotStrength = 50 end
 if _G.Mod_iPadViewDistance == nil then _G.Mod_iPadViewDistance = 90 end
 
 -- CHAMS color system
@@ -41,6 +40,15 @@ if _G.Mod_Chams_GreenEnabled == nil then _G.Mod_Chams_GreenEnabled = false end
 if _G.Mod_Chams_YellowEnabled == nil then _G.Mod_Chams_YellowEnabled = false end
 if _G.Mod_Chams_GreenRGB == nil then _G.Mod_Chams_GreenRGB = {R=0, G=255, B=0, A=255} end
 if _G.Mod_Chams_YellowRGB == nil then _G.Mod_Chams_YellowRGB = {R=255, G=255, B=0, A=255} end
+
+-- Scene config defaults
+if _G.ESPConfig == nil then _G.ESPConfig = {} end
+if _G.ESPConfig.BlackSky == nil then _G.ESPConfig.BlackSky = false end
+if _G.ESPConfig.RemoveFog == nil then _G.ESPConfig.RemoveFog = false end
+if _G.ESPConfig.RemoveGrass == nil then _G.ESPConfig.RemoveGrass = false end
+if _G.ESPConfig.RemoveTree == nil then _G.ESPConfig.RemoveTree = false end
+if _G.ESPConfig.RemoveWater == nil then _G.ESPConfig.RemoveWater = false end
+if _G.ESPConfig.ForceChinese == nil then _G.ESPConfig.ForceChinese = false end
 
 local require = require
 local import  = import
@@ -68,7 +76,6 @@ local ok_gd, GameplayData = pcall(require, "GameLua.GameCore.Data.GameplayData")
 if not ok_gd then GameplayData = nil end
 
 -- ==================== BYPASS ====================
--- Upgraded message display with multiple fallback methods
 pcall(function()
     local function ShowSuccessMessage(title, message)
         local Msg = package.loaded["client.slua.logic.common.logic_common_msg_box"]
@@ -79,32 +86,27 @@ pcall(function()
             pcall(function() Msg.Show(4, title, message) end)
             return true
         end
-        
         local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
         if pc and pc:GetHUD() then
             local hud = pc:GetHUD()
             if hud and hud.AddDebugText then
                 pcall(function()
-                    hud:AddDebugText(title .. " - " .. message, pc:GetCurPawn(), 1.5, 
-                        {X=0, Y=0, Z=200}, {X=0, Y=0, Z=200}, 
+                    hud:AddDebugText(title .. " - " .. message, pc:GetCurPawn(), 1.5,
+                        {X=0, Y=0, Z=200}, {X=0, Y=0, Z=200},
                         {R=0, G=255, B=0, A=255}, true, false, true, nil, 3.0, true)
                 end)
                 return true
             end
         end
-        
         print("[BYPASS] " .. title .. " BYPASS ACTIVE " .. message)
-        
         pcall(function()
             local Notice = require("client.slua.logic.common.logic_notice")
             if Notice and Notice.ShowNotice then
                 Notice.ShowNotice(message, 3)
             end
         end)
-        
         return false
     end
-    
     if not _G._BYPASS_MSG_SHOWN then
         _G._BYPASS_MSG_SHOWN = true
         ShowSuccessMessage("@WARDENBEAST", "✓ COMPLETE BYPASS ACTIVE\n✓ 100% Telemetry Killed\n✓ 8-LAYER ANTI-CHEAT BYPASSED\n✓ Play Safe | Enjoy")
@@ -728,7 +730,7 @@ local FakeData = {
             math.random(0,255), math.random(0,255), math.random(0,255))
     end,
     buildFingerprint = function()
-        return "qcom/msmnile/msmnile:" .. math.random(10, 12) .. "/" .. 
+        return "qcom/msmnile/msmnile:" .. math.random(10, 12) .. "/" ..
                math.random(100000, 999999) .. "/user/release-keys"
     end,
     kernelVersion = function() return "4.19." .. math.random(100, 200) .. "-generic" end,
@@ -1113,6 +1115,56 @@ local function finalStart()
 end
 finalStart()
 
+-- ==================== SCENE FUNCTIONS (global, used by menu) ====================
+local function ExecuteConsoleCommand(cmd, value)
+    local instance = slua_GameFrontendHUD and slua_GameFrontendHUD:GetGameInstance()
+    if instance then
+        pcall(function() instance:ExecuteCMD(cmd, value) end)
+    else
+        local SettingUtil = require("client.slua.logic.setting.setting_util")
+        if SettingUtil and SettingUtil.GetGameInstance then
+            local gi = SettingUtil:GetGameInstance()
+            if gi then pcall(function() gi:ExecuteCMD(cmd, value) end) end
+        end
+    end
+end
+
+function SetBlackSky(enabled)
+    ExecuteConsoleCommand("r.CylinderMaxDrawHeight", enabled and "9999" or "0")
+end
+
+function SetFogRemoval(enabled)
+    ExecuteConsoleCommand("r.Fog", enabled and "0" or "1")
+    ExecuteConsoleCommand("r.VolumetricFog", enabled and "0" or "1")
+end
+
+function SetGrassRemoval(enabled)
+    ExecuteConsoleCommand("grass.DensityScale", enabled and "0" or "1")
+    ExecuteConsoleCommand("foliage.DensityScale", enabled and "0" or "1")
+end
+
+function SetTreeRemoval(enabled)
+    ExecuteConsoleCommand("foliage.TreeDensityScale", enabled and "0" or "1")
+end
+
+function SetWaterRemoval(enabled)
+    ExecuteConsoleCommand("r.Water", enabled and "0" or "1")
+end
+
+function SetForceChinese(enabled)
+    if enabled then
+        pcall(function()
+            local gi = slua_GameFrontendHUD and slua_GameFrontendHUD:GetGameInstance()
+            if gi and gi.SetCurrentCulture then gi:SetCurrentCulture("zh-CN") end
+        end)
+    else
+        pcall(function()
+            local gi = slua_GameFrontendHUD and slua_GameFrontendHUD:GetGameInstance()
+            if gi and gi.SetCurrentCulture then gi:SetCurrentCulture("en") end
+        end)
+    end
+end
+
 -- ==================== WALLHACK ====================
 local function ApplyWallHack(localPlayer, enemy, pc)
     if not _G.CheatsEnabled then return end
@@ -1182,7 +1234,7 @@ local function ApplyWallHack(localPlayer, enemy, pc)
     end)
 end
 
--- ==================== ESP ==================== 
+-- ==================== ESP ====================
 local SecurityCommonUtils = require("GameLua.Mod.BaseMod.Common.Security.SecurityCommonUtils")
 local ASTExtraPlayerController = import("/Script/ShadowTrackerExtra.STExtraPlayerController")
 
@@ -1395,7 +1447,7 @@ _G.Enable165FPSLogic = function()
       local orig = graphics.SetFPS
       function graphics:SetFPS(lvl)
         if orig then orig(self, lvl) end
-        if lvl == 8 and _G.Mod_FPS165_Enabled ~= false then 
+        if lvl == 8 and _G.Mod_FPS165_Enabled ~= false then
           self:ExecuteCMD("t.MaxFPS", "165")
           self:ExecuteCMD("r.FrameRateLimit", "165")
         end
@@ -1476,11 +1528,14 @@ end
 if _G.Mod_FPS165_Enabled ~= false then _G.Enable165FPSLogic() end
 if _G.Mod_iPadView_Enabled ~= false then _G.EnableiPadViewUI() end
 
+-- ================ FIXED IPAD VIEW (ON/OFF TOGGLE WORKS) ================
 local pc = slua_GameFrontendHUD:GetPlayerController()
 if isValid(pc) and pc.AddGameTimer and pc ~= _G._FeaturesTimerPC then
   _G._FeaturesTimerPC = pc
   local SubsystemMgr = nil
   local lastViewDistance = nil
+  _G._originalTPPFOV = nil
+
   pc:AddGameTimer(0.1, true, function()
     pcall(function()
       if not _G.CheatsEnabled then return end
@@ -1490,7 +1545,6 @@ if isValid(pc) and pc.AddGameTimer and pc ~= _G._FeaturesTimerPC then
       if not isValid(char) then return end
       local lp = GameplayData.GetPlayerCharacter()
       if not isValid(lp) then return end
-      local isEnemy = lp.TeamID ~= char.TeamID
 
       SubsystemMgr = SubsystemMgr or package.loaded["GameLua.GameCore.Module.Subsystem.SubsystemMgr"] or require("GameLua.GameCore.Module.Subsystem.SubsystemMgr")
       if SubsystemMgr then
@@ -1503,14 +1557,24 @@ if isValid(pc) and pc.AddGameTimer and pc ~= _G._FeaturesTimerPC then
           elseif rawSliderValue > 90 then
               targetTPP = rawSliderValue
           end
-          if _G.Mod_iPadView_Enabled ~= false then
-            local uTPPCam = char.ThirdPersonCameraComponent
-            if isValid(uTPPCam) and not char.bIsWeaponAiming then
-                if lastViewDistance ~= targetTPP then
-                    uTPPCam.FieldOfView = targetTPP
-                    lastViewDistance = targetTPP
-                end
-            end
+
+          local uTPPCam = char.ThirdPersonCameraComponent
+          if isValid(uTPPCam) and not char.bIsWeaponAiming then
+              if _G._originalTPPFOV == nil then
+                  _G._originalTPPFOV = uTPPCam.FieldOfView or 90
+              end
+
+              if _G.Mod_iPadView_Enabled ~= false then
+                  if lastViewDistance ~= targetTPP then
+                      uTPPCam.FieldOfView = targetTPP
+                      lastViewDistance = targetTPP
+                  end
+              else
+                  if lastViewDistance ~= _G._originalTPPFOV then
+                      uTPPCam.FieldOfView = _G._originalTPPFOV
+                      lastViewDistance = _G._originalTPPFOV
+                  end
+              end
           end
         end
       end
@@ -1527,12 +1591,6 @@ if isValid(pc) and pc.AddGameTimer and pc ~= _G._FeaturesTimerPC then
           _G._NoGrassApplied = true
         end
       end
-
-      -- ======== REMOVED BONE SCALING CODE ========
-      -- The large pcall block that modified PhysicsAsset bone sizes has been removed.
-      -- This eliminates any potential detection from abnormal collision shapes.
-      -- =============================================
-
     end)
   end)
 end
@@ -1559,7 +1617,7 @@ local function ApplyHardAimbot()
         if not isValid(entity) then return end
 
         local strengthMul = (_G.Mod_AimbotStrength or 50) / 100
-        
+
         entity.GameDeviationFactor = 0.2
         entity.RecoilKick = 0.02
         entity.RecoilKickADS = 0.1
@@ -1571,13 +1629,13 @@ local function ApplyHardAimbot()
             for _, range in ipairs({"OuterRange", "InnerRange"}) do
                 local cfg = entity.AutoAimingConfig[range]
                 if cfg then
-                    cfg.Speed = 8
-                    cfg.RangeRate = 5
-                    cfg.SpeedRate = 5
-                    cfg.RangeRateSight = 4
-                    cfg.SpeedRateSight = 4
-                    cfg.CrouchRate = 4
-                    cfg.ProneRate = 4
+                    cfg.Speed = 4.3
+                    cfg.RangeRate = 3.9
+                    cfg.SpeedRate = 3.8
+                    cfg.RangeRateSight = 3.9
+                    cfg.SpeedRateSight = 3.8
+                    cfg.CrouchRate = 3.5
+                    cfg.ProneRate = 2.5
                     cfg.DyingRate = 0
                     cfg.adsorbMaxRange = 200
                     cfg.adsorbMinRange = 20
@@ -1695,12 +1753,13 @@ pcall(function()
         end)
     end
 
+    -- ==================== MERGED MENU (All toggles in one place) ====================
     _G.InitModMenuTab = function()
         local LocUtil = _G.LocUtil
         if not LocUtil and package.loaded["client.common.LocUtil"] then
             LocUtil = require("client.common.LocUtil")
         end
-        
+
         if LocUtil and not LocUtil._IsModMenuHooked then
             local old_get = LocUtil.GetLocalizeResStr
             LocUtil.GetLocalizeResStr = function(id)
@@ -1714,20 +1773,19 @@ pcall(function()
 
         local SettingPageDefine = require("client.logic.NewSetting.SettingPageDefine")
         local SettingCatalog = require("client.logic.NewSetting.SettingCatalog")
-        
+
         if not SettingPageDefine.ModMenu then
             local AliasMap = require("client.slua.umg.NewSetting.Item.AliasMap")
-            
+
             local ModMenuStack = {
-                { UI = AliasMap.Title, Text = "SETTING" },
+                { UI = AliasMap.Title, Text = "WARDENBEAST SETTINGS" },
+
+                -- === FEATURES ===
                 {
                     Key = "ModMenu_Aimbot",
                     UI = AliasMap.Switcher,
                     Text = "AIMBOT",
-                    GetFunc = function() 
-                        local state = _G.Mod_Aimbot_Enabled or false
-                        return state
-                    end,
+                    GetFunc = function() return _G.Mod_Aimbot_Enabled or false end,
                     SetFunc = function(_, value)
                         _G.Mod_Aimbot_Enabled = value
                         print("[MOD] AIMBOT: " .. (value and "ON ✓" or "OFF ✗"))
@@ -1771,7 +1829,7 @@ pcall(function()
                 {
                     Key = "NoGrass",
                     UI = AliasMap.Switcher,
-                    Text = "NO GRASS",
+                    Text = "NO GRASS (Built-in)",
                     GetFunc = function() return _G.Mod_NoGrass_Enabled ~= false end,
                     SetFunc = function(_, value)
                         _G.Mod_NoGrass_Enabled = value
@@ -1800,21 +1858,91 @@ pcall(function()
                         return true
                     end
                 },
+
+                -- === SCENE OPTIONS (added here) ===
+                { UI = AliasMap.Title, Text = "--- SCENE OPTIONS ---" },
+
+                {
+                    Key = "ESP_BlackSky",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "BlackSky (Dark Sky)",
+                    GetFunc = function() return _G.ESPConfig.BlackSky end,
+                    SetFunc = function(ctrl, value)
+                        _G.ESPConfig.BlackSky = value
+                        SetBlackSky(value)
+                        return true
+                    end
+                },
+                {
+                    Key = "ESP_RemoveFog",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "No Fog",
+                    GetFunc = function() return _G.ESPConfig.RemoveFog end,
+                    SetFunc = function(ctrl, value)
+                        _G.ESPConfig.RemoveFog = value
+                        SetFogRemoval(value)
+                        return true
+                    end
+                },
+                {
+                    Key = "ESP_RemoveGrass",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "No Grass (Scene)",
+                    GetFunc = function() return _G.ESPConfig.RemoveGrass end,
+                    SetFunc = function(ctrl, value)
+                        _G.ESPConfig.RemoveGrass = value
+                        SetGrassRemoval(value)
+                        return true
+                    end
+                },
+                {
+                    Key = "ESP_RemoveTree",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "No Tree",
+                    GetFunc = function() return _G.ESPConfig.RemoveTree end,
+                    SetFunc = function(ctrl, value)
+                        _G.ESPConfig.RemoveTree = value
+                        SetTreeRemoval(value)
+                        return true
+                    end
+                },
+                {
+                    Key = "ESP_RemoveWater",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "No Water",
+                    GetFunc = function() return _G.ESPConfig.RemoveWater end,
+                    SetFunc = function(ctrl, value)
+                        _G.ESPConfig.RemoveWater = value
+                        SetWaterRemoval(value)
+                        return true
+                    end
+                },
+                {
+                    Key = "ESP_ForceChinese",
+                    UI = AliasMap.TitleSwitcher,
+                    Text = "Force Chinese",
+                    GetFunc = function() return _G.ESPConfig.ForceChinese end,
+                    SetFunc = function(ctrl, value)
+                        _G.ESPConfig.ForceChinese = value
+                        SetForceChinese(value)
+                        return true
+                    end
+                }
             }
-            
+
             SettingPageDefine.ModMenu = {
                 Key = "ModMenu",
                 loc = "WARDENBEAST MENU",
-                UIKey = "Setting_Page_Privacy", 
+                UIKey = "Setting_Page_Privacy",
                 Category = {
                     {
                         Key = "ModMenu_Main",
-                        loc = "FEATURES", 
+                        loc = "ALL FEATURES",
                         Stack = ModMenuStack
                     }
                 }
             }
-            
+
             table.insert(SettingCatalog, SettingPageDefine.ModMenu)
         end
 
@@ -1834,7 +1962,7 @@ pcall(function()
                                 hasModMenu = true
                             end
                         end
-                        
+
                         if not hasModMenu then
                             table.insert(newCatalog, SettingPageDefine.ModMenu)
                             args[1] = newCatalog
@@ -1965,10 +2093,9 @@ pcall(function()
         if pc.HiggsBosonComponent then pc.HiggsBosonComponent.bMHActive = false; pc.HiggsBosonComponent:ControlMHActive(0) end
     end
 
-    -- ==================== ULTIMATE REPORT BLOCKER (NEW UPGRADE) ====================
+    -- ==================== ULTIMATE REPORT BLOCKER ====================
     local function UltimateReportBlocker()
         pcall(function()
-            -- 1. Override all global report functions
             local killGlobalFuncs = {
                 "ReportPlayer", "ReportCheat", "SubmitReport", "SendComplaintReq",
                 "ReportSuspiciousPlayer", "ShowReportUI", "OpenReportPanel",
@@ -1978,10 +2105,9 @@ pcall(function()
                 if type(_G[fn]) == "function" then
                     _G[fn] = function(...) return true, "blocked" end
                 end
-                _G[fn] = nil  -- remove it entirely
+                _G[fn] = nil
             end
 
-            -- 2. Hook UIManager to block any report/complaint UI from opening
             local UIManager = _G.UIManager
             if UIManager and not UIManager._IsReportBlockerHooked then
                 local old_ShowUI = UIManager.ShowUI
@@ -1998,7 +2124,6 @@ pcall(function()
                 UIManager._IsReportBlockerHooked = true
             end
 
-            -- 3. Persistent killer for report modules (in case they get reloaded)
             local function KillReportModules()
                 pcall(function()
                     local targetModules = {
@@ -2024,12 +2149,11 @@ pcall(function()
                 end)
             end
 
-            -- Run the killer every 2 seconds to ensure nothing slips through
             local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
             if isValid(pc) and pc.AddGameTimer then
                 pc:AddGameTimer(2.0, true, KillReportModules)
             end
-            KillReportModules() -- Run immediately
+            KillReportModules()
             print("[UPGRADE] Ultimate Report Blocker Activated - Reports are fully blocked!")
         end)
     end
@@ -2082,3 +2206,4 @@ pcall(function()
         bypassInit()
     end
 end)
+
