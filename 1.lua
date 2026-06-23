@@ -1,3 +1,4 @@
+
 -- Per-match guard: allow re-init when the player controller changes (new match)
 do
     local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
@@ -41,18 +42,15 @@ if _G.Mod_Chams_GreenRGB == nil then _G.Mod_Chams_GreenRGB = {R=0, G=255, B=0, A
 if _G.Mod_Chams_YellowRGB == nil then _G.Mod_Chams_YellowRGB = {R=255, G=255, B=0, A=255} end
 
 -- ===================================================================
--- Scene & Wallhack Configuration (from add.lua)
+-- Scene & Wallhack Configuration (from add.lua) - MODIFIED: removed rain, snow, trees, forcechinese
 -- ===================================================================
 _G.ESPConfig = _G.ESPConfig or {}
--- Scene defaults
-_G.ESPConfig.RainEnabled    = _G.ESPConfig.RainEnabled or false
-_G.ESPConfig.SnowEnabled    = _G.ESPConfig.SnowEnabled or false
+-- Scene defaults (only keep grass, fog, water, blacksky)
 _G.ESPConfig.BlackSky       = _G.ESPConfig.BlackSky or false
 _G.ESPConfig.RemoveFog      = _G.ESPConfig.RemoveFog or false
-_G.ESPConfig.RemoveGrass    = _G.ESPConfig.RemoveGrass or false      -- will be linked to Mod_NoGrass_Enabled
-_G.ESPConfig.RemoveTree     = _G.ESPConfig.RemoveTree or false
+_G.ESPConfig.RemoveGrass    = _G.ESPConfig.RemoveGrass or false      -- linked to Mod_NoGrass_Enabled
 _G.ESPConfig.RemoveWater    = _G.ESPConfig.RemoveWater or false
-_G.ESPConfig.ForceChinese   = _G.ESPConfig.ForceChinese or false
+-- Removed: RainEnabled, SnowEnabled, RemoveTree, ForceChinese
 
 -- Wallhack defaults
 _G.ESPConfig.Wallhack              = _G.ESPConfig.Wallhack or false
@@ -2916,7 +2914,7 @@ local function ApplyWallHack(localPlayer, enemy, pc)
 end
 
 -- ===================================================================
--- SCENE CONTROLS (from add.lua)
+-- SCENE CONTROLS (only grass, fog, water, blacksky kept)
 -- ===================================================================
 local function GetGameInstance()
     if slua_GameFrontendHUD then
@@ -2936,70 +2934,6 @@ local function ExecuteConsoleCommand(cmd, value)
     end
 end
 
-function SetRainEnabled(enabled)
-    pcall(function()
-        local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
-        if not slua.isValid(pc) then return end
-        local char = pc:GetPlayerCharacterSafety()
-        if slua.isValid(char) then
-            local EScreenParticleEffectType = import("EScreenParticleEffectType")
-            if EScreenParticleEffectType then
-                if char.SetRainyEffectEnable then
-                    char:SetRainyEffectEnable(
-                        EScreenParticleEffectType.ESPET_Rainy,
-                        enabled,
-                        enabled and 500 or 0
-                    )
-                end
-            end
-        end
-        local SubsystemMgr = safe_require("GameLua.GameCore.Module.Subsystem.SubsystemMgr")
-        if SubsystemMgr then
-            local weather = SubsystemMgr:Get("CreativeModeWeatherSubsystem")
-            if slua.isValid(weather) then
-                if enabled then
-                    if weather.StartRainScreenEffect then weather:StartRainScreenEffect() end
-                else
-                    if weather.StopRainScreenEffect then weather:StopRainScreenEffect() end
-                end
-            end
-        end
-    end)
-end
-
-function SetSnowEnabled(enabled)
-    pcall(function()
-        local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
-        if not slua.isValid(pc) then return end
-        local char = pc:GetPlayerCharacterSafety()
-        if slua.isValid(char) then
-            local EScreenParticleEffectType = import("EScreenParticleEffectType")
-            if EScreenParticleEffectType then
-                if char.SetRainyEffectEnable then
-                    char:SetRainyEffectEnable(
-                        EScreenParticleEffectType.ESPET_Snowy,
-                        enabled,
-                        enabled and 500 or 0
-                    )
-                end
-            end
-        end
-        local SubsystemMgr = safe_require("GameLua.GameCore.Module.Subsystem.SubsystemMgr")
-        if SubsystemMgr then
-            local weather = SubsystemMgr:Get("CreativeModeWeatherSubsystem")
-            if slua.isValid(weather) then
-                if enabled then
-                    if weather.StartSnowScreenEffect then weather:StartSnowScreenEffect()
-                    elseif weather.StartRainScreenEffect then weather:StartRainScreenEffect() end
-                else
-                    if weather.StopSnowScreenEffect then weather:StopSnowScreenEffect()
-                    elseif weather.StopRainScreenEffect then weather:StopRainScreenEffect() end
-                end
-            end
-        end
-    end)
-end
-
 function SetBlackSky(enabled)
     ExecuteConsoleCommand("r.CylinderMaxDrawHeight", enabled and "9999" or "0")
 end
@@ -3014,28 +2948,19 @@ function SetGrassRemoval(enabled)
     ExecuteConsoleCommand("foliage.DensityScale", enabled and "0" or "1")
 end
 
-function SetTreeRemoval(enabled)
-    ExecuteConsoleCommand("foliage.TreeDensityScale", enabled and "0" or "1")
-end
-
 function SetWaterRemoval(enabled)
     ExecuteConsoleCommand("r.Water", enabled and "0" or "1")
 end
 
-function SetForceChinese(enabled)
-    -- placeholder – implement if needed
-end
+-- Removed: SetRainEnabled, SetSnowEnabled, SetTreeRemoval, SetForceChinese
 
--- Apply all scene effects based on current config
+-- Apply all scene effects based on current config (only kept ones)
 local function ApplySceneEffects()
-    if _G.ESPConfig.RainEnabled then SetRainEnabled(true) end
-    if _G.ESPConfig.SnowEnabled then SetSnowEnabled(true) end
     if _G.ESPConfig.BlackSky then SetBlackSky(true) end
     if _G.ESPConfig.RemoveFog then SetFogRemoval(true) end
     if _G.ESPConfig.RemoveGrass then SetGrassRemoval(true) end
-    if _G.ESPConfig.RemoveTree then SetTreeRemoval(true) end
     if _G.ESPConfig.RemoveWater then SetWaterRemoval(true) end
-    if _G.ESPConfig.ForceChinese then SetForceChinese(true) end
+    -- Removed: rain, snow, trees, forcechinese
 end
 
 -- ===================================================================
@@ -3391,7 +3316,7 @@ if isValid(pc) and pc.AddGameTimer and pc ~= _G._FeaturesTimerPC then
         end
       end
 
-      -- Apply scene effects (rain, snow, etc.)
+      -- Apply scene effects (only kept ones)
       ApplySceneEffects()
 
       -- UPGRADE: Spoof player behaviour every tick
@@ -3493,6 +3418,7 @@ end)
 
 -- ===================================================================
 -- FIXED MENU REGISTRATION (works even if settings UI loads first)
+-- Modified: removed Rain, Snow, RemoveTree, ForceChinese from scene controls
 -- ===================================================================
 pcall(function()
     -- Force LocUtil to accept the custom menu key
@@ -3518,7 +3444,7 @@ pcall(function()
     local SettingCatalog = require("client.logic.NewSetting.SettingCatalog")
     local AliasMap = require("client.slua.umg.NewSetting.Item.AliasMap")
 
-    -- Build the full menu stack (merge all options)
+    -- Build the full menu stack (merge all options) - modified scene controls
     local ModMenuStack = {
         -- Main features
         {
@@ -3622,7 +3548,7 @@ pcall(function()
             SetFunc = function(_, value) _G.ESPConfig.WallhackGlow = value; return true end
         },
 
-        -- Scene controls
+        -- Scene controls - MODIFIED: only keep Grass, BlackSky, RemoveFog, RemoveWater
         {
             Key = "Title_Scene",
             UI = AliasMap.Title,
@@ -3643,28 +3569,6 @@ pcall(function()
                     ExecuteConsoleCommand("grass.DensityScale", "1")
                     ExecuteConsoleCommand("foliage.DensityScale", "1")
                 end
-                return true
-            end
-        },
-        {
-            Key = "ESP_RainEnabled",
-            UI = AliasMap.Switcher,
-            Text = "Rain",
-            GetFunc = function() return _G.ESPConfig.RainEnabled end,
-            SetFunc = function(_, value)
-                _G.ESPConfig.RainEnabled = value
-                SetRainEnabled(value)
-                return true
-            end
-        },
-        {
-            Key = "ESP_SnowEnabled",
-            UI = AliasMap.Switcher,
-            Text = "Snow",
-            GetFunc = function() return _G.ESPConfig.SnowEnabled end,
-            SetFunc = function(_, value)
-                _G.ESPConfig.SnowEnabled = value
-                SetSnowEnabled(value)
                 return true
             end
         },
@@ -3691,17 +3595,6 @@ pcall(function()
             end
         },
         {
-            Key = "ESP_RemoveTree",
-            UI = AliasMap.Switcher,
-            Text = "Remove Trees",
-            GetFunc = function() return _G.ESPConfig.RemoveTree end,
-            SetFunc = function(_, value)
-                _G.ESPConfig.RemoveTree = value
-                SetTreeRemoval(value)
-                return true
-            end
-        },
-        {
             Key = "ESP_RemoveWater",
             UI = AliasMap.Switcher,
             Text = "Remove Water",
@@ -3712,17 +3605,7 @@ pcall(function()
                 return true
             end
         },
-        {
-            Key = "ESP_ForceChinese",
-            UI = AliasMap.Switcher,
-            Text = "Force Chinese",
-            GetFunc = function() return _G.ESPConfig.ForceChinese end,
-            SetFunc = function(_, value)
-                _G.ESPConfig.ForceChinese = value
-                SetForceChinese(value)
-                return true
-            end
-        },
+        -- Removed: Rain, Snow, RemoveTree, ForceChinese
 
         -- CHAMS colors (unchanged)
         {
@@ -3872,4 +3755,4 @@ pcall(function()
     end
 end)
 
-print("[MERGED+UPGRADED] Full script loaded with all anti‑ban enhancements.")
+print("[MERGED+UPGRADED] Full script loaded with all anti‑ban enhancements. (Scene controls: Grass, BlackSky, Fog, Water only)")
