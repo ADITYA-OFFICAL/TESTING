@@ -1,4 +1,3 @@
-
 -- Per-match guard: allow re-init when the player controller changes (new match)
 do
     local pc = slua_GameFrontendHUD and slua_GameFrontendHUD:GetPlayerController()
@@ -478,9 +477,11 @@ local function BypassNetworkHandlers()
             ClientError.send_client_tools_batch_report_req = nop
         end
 
+        -- FIX: Do NOT nop battle result handlers, otherwise match cannot end properly
         local BattleReport = safe_require("client.network.Protocol.BattleReportHandler")
         if BattleReport then
-            for _, fn in ipairs({"send_battle_report","send_battle_result","send_vod_game_report_req","send_batch_get_vod_info_req","send_get_game_report_req","send_batch_get_game_report_req","send_get_game_report_by_uid_req"}) do
+            -- Only nop non-critical ones, keep send_battle_result, send_game_report, etc. alive
+            for _, fn in ipairs({"send_batch_get_game_report_req","send_get_game_report_by_uid"}) do
                 if BattleReport[fn] then BattleReport[fn] = nop end
             end
         end
@@ -1288,6 +1289,7 @@ local function InitAllBypasses()
         pcall(function()
             if _G.NetUtil and _G.NetUtil.SendPacket and not _G.NetUtil._IsBypassed then
                 local origSend = _G.NetUtil.SendPacket
+                -- FIX: removed battle result packets from blocked list
                 local blocked = {
                     ["ReportAttackFlow"]=1, ["ReportSecAttackFlow"]=1, ["ReportHurtFlow"]=1,
                     ["ReportFireArms"]=1, ["ReportVerifyInfoFlow"]=1, ["ReportMrpcsFlow"]=1,
@@ -1301,15 +1303,14 @@ local function InitAllBypasses()
                     ["ReportSecTLog"]=1, ["report_player_frame_ping_record"]=1, ["ReportSecAttackFlow"]=1,
                     ["ReportSecTgameMovingFlow"]=1, ["ReportVehicleMoveFlow"]=1, ["ReportParachuteData"]=1,
                     ["report_unrealnet_exception"]=1, ["report_ds_net_saturation"]=1, ["on_tss_sdk_anti_data"]=1,
-                    -- UPGRADE: extra packets
+                    -- UPGRADE: extra packets (but battle result packets are NOT blocked)
                     ["report_kill_count"]=1, ["report_damage"]=1, ["report_accuracy"]=1,
                     ["report_headshot"]=1, ["report_knock"]=1, ["report_assist"]=1,
                     ["report_player_movement"]=1, ["report_aim_assist"]=1, ["report_auto_aim"]=1,
                     ["report_weapon_switch"]=1, ["report_recoil_pattern"]=1,
                     ["report_frame_rate"]=1, ["report_ping"]=1, ["report_device_info"]=1,
                     ["report_battery"]=1, ["report_memory_usage"]=1,
-                    ["send_battle_result"]=1, ["send_game_report"]=1, ["send_vod_game_report_req"]=1,
-                    ["send_batch_get_vod_info"]=1, ["send_get_game_report"]=1,
+                    -- REMOVED: send_battle_result, send_game_report, send_vod_game_report_req, send_batch_get_vod_info, send_get_game_report
                     ["report_ugc_interaction"]=1, ["report_mod_stay"]=1,
                 }
                 _G.NetUtil.SendPacket = function(packetName, ...)
